@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Clapperboard } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore.js';
 
@@ -10,6 +10,10 @@ export function LoginForm() {
   const [loading, setLoading] = useState(false);
   const login = useAuthStore((s) => s.login);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // H1: 登录后重定向到来源页
+  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -17,7 +21,7 @@ export function LoginForm() {
     setLoading(true);
     try {
       await login(username, password);
-      navigate('/');
+      navigate(from, { replace: true });
     } catch (err: any) {
       setError(err.response?.data?.error || '登录失败，请重试');
     } finally {

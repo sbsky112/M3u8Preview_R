@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Users, Heart, ListVideo, Clock } from 'lucide-react';
 import { adminApi } from '../services/adminApi.js';
@@ -7,6 +7,11 @@ export function AdminUsersPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const queryClient = useQueryClient();
+
+  // H2: 搜索变化时重置分页
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'users', page, search],

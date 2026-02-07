@@ -1,41 +1,12 @@
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../middleware/errorHandler.js';
 import type { Favorite, PaginatedResponse } from '@m3u8-preview/shared';
+import { serializeFavorite } from '../utils/serializers.js';
 
 const mediaInclude = {
   category: true,
   tags: { include: { tag: true } },
 };
-
-function serializeFavorite(fav: any): Favorite {
-  const result: any = {
-    id: fav.id,
-    userId: fav.userId,
-    mediaId: fav.mediaId,
-    createdAt: fav.createdAt instanceof Date ? fav.createdAt.toISOString() : fav.createdAt,
-  };
-
-  if (fav.media) {
-    result.media = {
-      ...fav.media,
-      createdAt: fav.media.createdAt instanceof Date ? fav.media.createdAt.toISOString() : fav.media.createdAt,
-      updatedAt: fav.media.updatedAt instanceof Date ? fav.media.updatedAt.toISOString() : fav.media.updatedAt,
-      category: fav.media.category ? {
-        ...fav.media.category,
-        createdAt: fav.media.category.createdAt instanceof Date ? fav.media.category.createdAt.toISOString() : fav.media.category.createdAt,
-        updatedAt: fav.media.category.updatedAt instanceof Date ? fav.media.category.updatedAt.toISOString() : fav.media.category.updatedAt,
-      } : fav.media.category,
-      tags: fav.media.tags?.map((mt: any) => ({
-        id: mt.tag?.id ?? mt.id,
-        name: mt.tag?.name ?? mt.name,
-        createdAt: (mt.tag?.createdAt ?? mt.createdAt) instanceof Date ? (mt.tag?.createdAt ?? mt.createdAt).toISOString() : (mt.tag?.createdAt ?? mt.createdAt),
-        updatedAt: (mt.tag?.updatedAt ?? mt.updatedAt) instanceof Date ? (mt.tag?.updatedAt ?? mt.updatedAt).toISOString() : (mt.tag?.updatedAt ?? mt.updatedAt),
-      })),
-    };
-  }
-
-  return result;
-}
 
 export const favoriteService = {
   async toggle(userId: string, mediaId: string): Promise<{ isFavorited: boolean }> {

@@ -49,7 +49,12 @@ export const importService = {
         // Find or create category
         let categoryId: string | undefined;
         if (item.categoryName) {
-          const slug = item.categoryName.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-').replace(/^-|-$/g, '') || 'uncategorized';
+          // L13: slug 生成移除中文字符，仅保留小写字母、数字和连字符，与 categoryCreateSchema 一致
+          const slug = item.categoryName
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-|-$/g, '')
+            || 'uncategorized';
           const category = await prisma.category.upsert({
             where: { name: item.categoryName },
             update: {},

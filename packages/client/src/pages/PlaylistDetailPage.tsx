@@ -59,7 +59,7 @@ export function PlaylistDetailPage() {
 
       {playlist.items && playlist.items.length > 0 ? (
         <div className="space-y-2">
-          {playlist.items.sort((a: PlaylistItem, b: PlaylistItem) => a.position - b.position).map((item: PlaylistItem, index: number) => (
+          {[...playlist.items].sort((a: PlaylistItem, b: PlaylistItem) => a.position - b.position).map((item: PlaylistItem, index: number) => (
             <div key={item.id} className="flex items-center gap-4 bg-emby-bg-card border border-emby-border-subtle rounded-lg p-3 hover:border-emby-border transition-colors group">
               <span className="text-emby-text-muted text-sm w-6 text-center">{index + 1}</span>
               <Link to={`/media/${item.mediaId}`} className="flex-1 flex items-center gap-4 min-w-0">

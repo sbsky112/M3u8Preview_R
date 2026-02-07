@@ -1,12 +1,17 @@
 import multer from 'multer';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
 import { config } from '../config.js';
 import { AppError } from '../middleware/errorHandler.js';
 
+// H5: 使用绝对路径，避免依赖 CWD
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const uploadsDir = path.resolve(__dirname, '../../../uploads');
+
 const storage = multer.diskStorage({
   destination(_req, _file, cb) {
-    cb(null, 'uploads/');
+    cb(null, uploadsDir);
   },
   filename(_req, file, cb) {
     const ext = path.extname(file.originalname);

@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { mediaApi } from '../services/mediaApi.js';
@@ -13,6 +13,7 @@ const OVERLAY_TIMEOUT = 3000;
 export function PlaybackPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [overlayVisible, setOverlayVisible] = useState(true);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
@@ -53,20 +54,31 @@ export function PlaybackPage() {
     };
   }, []);
 
+  // 返回时刷新进度数据，确保详情页能看到最新进度
+  // 延迟 invalidate，等待 sendBeacon 的进度数据先到达服务端
+  useEffect(() => {
+    return () => {
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['watchProgress', id] });
+        queryClient.invalidateQueries({ queryKey: ['progressMap'] });
+      }, 300);
+    };
+  }, [id, queryClient]);
+
   // 键盘快捷键：Escape 返回详情页
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') {
         e.preventDefault();
-        navigate(`/media/${id}`, { replace: true });
+        navigate(-1);
       }
     }
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [navigate, id]);
+  }, [navigate]);
 
   function handleBack() {
-    navigate(`/media/${id}`, { replace: true });
+    navigate(-1);
   }
 
   if (isLoading) {

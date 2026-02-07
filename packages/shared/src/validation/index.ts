@@ -22,8 +22,7 @@ export const mediaCreateSchema = z.object({
   m3u8Url: z
     .string()
     .url('请输入有效的URL')
-    .regex(/\.m3u8/, 'URL必须为M3U8格式')
-    .or(z.string().url()),
+    .regex(/\.m3u8/, 'URL必须包含.m3u8'),
   posterUrl: z.string().url().optional().or(z.literal('')),
   description: z.string().max(5000).optional(),
   year: z.number().int().min(1900).max(2100).optional(),

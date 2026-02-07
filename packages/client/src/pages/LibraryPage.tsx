@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { mediaApi } from '../services/mediaApi.js';
@@ -14,6 +14,11 @@ export function LibraryPage() {
   const [sortBy, setSortBy] = useState<string>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const search = searchParams.get('search') || '';
+
+  // H2: 搜索变化时重置分页
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
 
   const { data: categories } = useQuery({
     queryKey: ['categories'],

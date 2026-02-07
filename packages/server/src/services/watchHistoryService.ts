@@ -1,45 +1,12 @@
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../middleware/errorHandler.js';
 import type { WatchHistory, PaginatedResponse } from '@m3u8-preview/shared';
+import { serializeHistory } from '../utils/serializers.js';
 
 const mediaInclude = {
   category: true,
   tags: { include: { tag: true } },
 };
-
-function serializeHistory(history: any): WatchHistory {
-  const result: any = {
-    id: history.id,
-    userId: history.userId,
-    mediaId: history.mediaId,
-    progress: history.progress,
-    duration: history.duration,
-    percentage: history.percentage,
-    completed: history.completed,
-    updatedAt: history.updatedAt instanceof Date ? history.updatedAt.toISOString() : history.updatedAt,
-  };
-
-  if (history.media) {
-    result.media = {
-      ...history.media,
-      createdAt: history.media.createdAt instanceof Date ? history.media.createdAt.toISOString() : history.media.createdAt,
-      updatedAt: history.media.updatedAt instanceof Date ? history.media.updatedAt.toISOString() : history.media.updatedAt,
-      category: history.media.category ? {
-        ...history.media.category,
-        createdAt: history.media.category.createdAt instanceof Date ? history.media.category.createdAt.toISOString() : history.media.category.createdAt,
-        updatedAt: history.media.category.updatedAt instanceof Date ? history.media.category.updatedAt.toISOString() : history.media.category.updatedAt,
-      } : history.media.category,
-      tags: history.media.tags?.map((mt: any) => ({
-        id: mt.tag?.id ?? mt.id,
-        name: mt.tag?.name ?? mt.name,
-        createdAt: (mt.tag?.createdAt ?? mt.createdAt) instanceof Date ? (mt.tag?.createdAt ?? mt.createdAt).toISOString() : (mt.tag?.createdAt ?? mt.createdAt),
-        updatedAt: (mt.tag?.updatedAt ?? mt.updatedAt) instanceof Date ? (mt.tag?.updatedAt ?? mt.updatedAt).toISOString() : (mt.tag?.updatedAt ?? mt.updatedAt),
-      })),
-    };
-  }
-
-  return result;
-}
 
 export const watchHistoryService = {
   async updateProgress(

@@ -1,7 +1,22 @@
 import { Request, Response, NextFunction } from 'express';
+import { z } from 'zod';
 import { adminService } from '../services/adminService.js';
 
 type Params = { id: string };
+
+// S4: Zod schema 限制 role 只允许合法值
+const updateUserSchema = z.object({
+  role: z.enum(['USER', 'ADMIN']).optional(),
+  isActive: z.boolean().optional(),
+}).refine(data => data.role !== undefined || data.isActive !== undefined, {
+  message: 'At least one of role or isActive must be provided',
+});
+
+// M12: Zod schema 验证系统设置
+const updateSettingSchema = z.object({
+  key: z.string().min(1).max(100),
+  value: z.string(),
+});
 
 export const adminController = {
   /**
@@ -36,7 +51,12 @@ export const adminController = {
    */
   async updateUser(req: Request<Params>, res: Response, next: NextFunction) {
     try {
-      const { role, isActive } = req.body;
+      const parsed = updateUserSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({ success: false, error: parsed.error.errors.map(e => e.message).join(', ') });
+        return;
+      }
+      const { role, isActive } = parsed.data;
       const user = await adminService.updateUser(req.params.id, { role, isActive });
       res.json({ success: true, data: user });
     } catch (error) {
@@ -73,7 +93,12 @@ export const adminController = {
    */
   async updateSetting(req: Request, res: Response, next: NextFunction) {
     try {
-      const { key, value } = req.body;
+      const parsed = updateSettingSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({ success: false, error: parsed.error.errors.map(e => e.message).join(', ') });
+        return;
+      }
+      const { key, value } = parsed.data;
       const setting = await adminService.updateSystemSetting(key, value);
       res.json({ success: true, data: setting });
     } catch (error) {

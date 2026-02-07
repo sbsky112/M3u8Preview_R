@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { X } from 'lucide-react';
+import { X, Check } from 'lucide-react';
 import { playlistApi } from '../../services/playlistApi.js';
 import type { Playlist } from '@m3u8-preview/shared';
 
@@ -20,10 +20,18 @@ export function AddToPlaylistModal({ mediaId, isOpen, onClose }: Props) {
     enabled: isOpen,
   });
 
+  const [addedId, setAddedId] = useState<string | null>(null);
+
   const addMutation = useMutation({
     mutationFn: (playlistId: string) => playlistApi.addItem(playlistId, mediaId),
-    onSuccess: () => {
+    onSuccess: (_data, playlistId) => {
       queryClient.invalidateQueries({ queryKey: ['playlists'] });
+      // H4: 添加成功后给反馈并自动关闭
+      setAddedId(playlistId);
+      setTimeout(() => {
+        setAddedId(null);
+        onClose();
+      }, 800);
     },
   });
 
@@ -59,8 +67,13 @@ export function AddToPlaylistModal({ mediaId, isOpen, onClose }: Props) {
               disabled={addMutation.isPending}
               className="w-full text-left px-4 py-3 bg-emby-bg-input hover:bg-emby-bg-elevated rounded-md transition-colors"
             >
-              <p className="text-white text-sm font-medium">{pl.name}</p>
-              <p className="text-emby-text-muted text-xs">{pl._count?.items || 0} 个视频</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-white text-sm font-medium">{pl.name}</p>
+                  <p className="text-emby-text-muted text-xs">{pl._count?.items || 0} 个视频</p>
+                </div>
+                {addedId === pl.id && <Check className="w-4 h-4 text-emby-green" />}
+              </div>
             </button>
           ))}
           {(!playlists || playlists.length === 0) && (

@@ -18,8 +18,15 @@ export function parseText(content: string): ImportItem[] {
     const url = line;
     const urlParts = url.split('/');
     const filename = urlParts[urlParts.length - 1]?.replace(/\.m3u8.*$/, '') || 'Untitled';
+    // L12: decodeURIComponent 可能抛 URIError，安全降级
+    let title: string;
+    try {
+      title = decodeURIComponent(filename);
+    } catch {
+      title = filename;
+    }
     return {
-      title: decodeURIComponent(filename),
+      title,
       m3u8Url: url,
     };
   });

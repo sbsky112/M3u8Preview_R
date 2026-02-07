@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Film, Plus } from 'lucide-react';
@@ -12,6 +12,11 @@ export function AdminMediaPage() {
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<Partial<MediaCreateRequest>>({ title: '', m3u8Url: '' });
   const queryClient = useQueryClient();
+
+  // H2: 搜索变化时重置分页
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'media', page, search],
@@ -87,6 +92,16 @@ export function AdminMediaPage() {
           </button>
         </div>
       </div>
+
+      {/* H9: 操作错误提示 */}
+      {(createMutation.error || updateMutation.error || deleteMutation.error) && (
+        <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-md text-sm">
+          {(createMutation.error as any)?.response?.data?.error
+            || (updateMutation.error as any)?.response?.data?.error
+            || (deleteMutation.error as any)?.response?.data?.error
+            || '操作失败，请重试'}
+        </div>
+      )}
 
       {/* Add/Edit form */}
       {showAdd && (

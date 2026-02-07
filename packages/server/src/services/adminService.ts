@@ -1,25 +1,7 @@
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../middleware/errorHandler.js';
 import type { DashboardStats, PaginatedResponse, UserWithStats, Media } from '@m3u8-preview/shared';
-
-function serializeMedia(media: any): Media {
-  return {
-    ...media,
-    createdAt: media.createdAt instanceof Date ? media.createdAt.toISOString() : media.createdAt,
-    updatedAt: media.updatedAt instanceof Date ? media.updatedAt.toISOString() : media.updatedAt,
-    category: media.category ? {
-      ...media.category,
-      createdAt: media.category.createdAt instanceof Date ? media.category.createdAt.toISOString() : media.category.createdAt,
-      updatedAt: media.category.updatedAt instanceof Date ? media.category.updatedAt.toISOString() : media.category.updatedAt,
-    } : media.category,
-    tags: media.tags?.map((mt: any) => ({
-      id: mt.tag?.id ?? mt.id,
-      name: mt.tag?.name ?? mt.name,
-      createdAt: (mt.tag?.createdAt ?? mt.createdAt) instanceof Date ? (mt.tag?.createdAt ?? mt.createdAt).toISOString() : (mt.tag?.createdAt ?? mt.createdAt),
-      updatedAt: (mt.tag?.updatedAt ?? mt.updatedAt) instanceof Date ? (mt.tag?.updatedAt ?? mt.updatedAt).toISOString() : (mt.tag?.updatedAt ?? mt.updatedAt),
-    })),
-  };
-}
+import { serializeMedia } from '../utils/serializers.js';
 
 export const adminService = {
   /**

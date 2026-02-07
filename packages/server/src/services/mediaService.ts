@@ -1,25 +1,7 @@
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../middleware/errorHandler.js';
 import type { MediaCreateRequest, MediaUpdateRequest, MediaQueryParams, PaginatedResponse, Media } from '@m3u8-preview/shared';
-
-function serializeMedia(media: any): Media {
-  return {
-    ...media,
-    createdAt: media.createdAt instanceof Date ? media.createdAt.toISOString() : media.createdAt,
-    updatedAt: media.updatedAt instanceof Date ? media.updatedAt.toISOString() : media.updatedAt,
-    category: media.category ? {
-      ...media.category,
-      createdAt: media.category.createdAt instanceof Date ? media.category.createdAt.toISOString() : media.category.createdAt,
-      updatedAt: media.category.updatedAt instanceof Date ? media.category.updatedAt.toISOString() : media.category.updatedAt,
-    } : media.category,
-    tags: media.tags?.map((mt: any) => ({
-      id: mt.tag?.id ?? mt.id,
-      name: mt.tag?.name ?? mt.name,
-      createdAt: (mt.tag?.createdAt ?? mt.createdAt) instanceof Date ? (mt.tag?.createdAt ?? mt.createdAt).toISOString() : (mt.tag?.createdAt ?? mt.createdAt),
-      updatedAt: (mt.tag?.updatedAt ?? mt.updatedAt) instanceof Date ? (mt.tag?.updatedAt ?? mt.updatedAt).toISOString() : (mt.tag?.updatedAt ?? mt.updatedAt),
-    })),
-  };
-}
+import { serializeMedia } from '../utils/serializers.js';
 
 const mediaInclude = {
   category: true,
@@ -97,21 +79,23 @@ export const mediaService = {
 
     const { tagIds, ...mediaData } = data;
 
-    // If tagIds provided, replace all tags
-    if (tagIds !== undefined) {
-      await prisma.mediaTag.deleteMany({ where: { mediaId: id } });
-      if (tagIds.length > 0) {
-        await prisma.mediaTag.createMany({
-          data: tagIds.map(tagId => ({ mediaId: id, tagId })),
-        });
+    // M11: 使用事务确保 tag 替换的原子性
+    const media = await prisma.$transaction(async (tx) => {
+      if (tagIds !== undefined) {
+        await tx.mediaTag.deleteMany({ where: { mediaId: id } });
+        if (tagIds.length > 0) {
+          await tx.mediaTag.createMany({
+            data: tagIds.map(tagId => ({ mediaId: id, tagId })),
+          });
+        }
       }
-    }
-
-    const media = await prisma.media.update({
-      where: { id },
-      data: mediaData,
-      include: mediaInclude,
+      return tx.media.update({
+        where: { id },
+        data: mediaData,
+        include: mediaInclude,
+      });
     });
+
     return serializeMedia(media);
   },
 
@@ -131,15 +115,16 @@ export const mediaService = {
   },
 
   async getRandom(count: number = 10): Promise<Media[]> {
-    // SQLite doesn't have RANDOM() in Prisma, so we fetch all IDs and pick randomly
-    const allIds = await prisma.media.findMany({
-      where: { status: 'ACTIVE' },
-      select: { id: true },
-    });
+    // H6: 使用 Prisma raw query 利用 SQLite RANDOM()，避免加载全部 ID 到内存
+    const randomIds = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+      `SELECT id FROM Media WHERE status = 'ACTIVE' ORDER BY RANDOM() LIMIT ?`,
+      count,
+    );
 
-    const shuffled = allIds.sort(() => 0.5 - Math.random()).slice(0, count);
+    if (randomIds.length === 0) return [];
+
     const items = await prisma.media.findMany({
-      where: { id: { in: shuffled.map(i => i.id) } },
+      where: { id: { in: randomIds.map(i => i.id) } },
       include: mediaInclude,
     });
     return items.map(serializeMedia);

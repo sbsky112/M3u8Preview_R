@@ -4,6 +4,8 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { config } from './config.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import authRoutes from './routes/authRoutes.js';
@@ -16,6 +18,9 @@ import uploadRoutes from './routes/uploadRoutes.js';
 import playlistRoutes from './routes/playlistRoutes.js';
 import importRoutes from './routes/importRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const uploadsDir = path.resolve(__dirname, '../../uploads');
 
 const app = express();
 
@@ -45,8 +50,8 @@ if (config.nodeEnv !== 'test') {
   app.use(morgan('dev'));
 }
 
-// Static files
-app.use('/uploads', express.static('uploads'));
+// H5: 使用绝对路径提供静态文件
+app.use('/uploads', express.static(uploadsDir));
 
 // API routes
 app.use('/api/v1/auth', authLimiter, authRoutes);

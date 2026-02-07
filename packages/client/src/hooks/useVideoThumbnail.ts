@@ -243,6 +243,11 @@ export function useVideoThumbnail(
 
       if (result) {
         memoryCache.set(mediaId, result);
+        // M2: 限制内存缓存大小，防止内存泄漏
+        if (memoryCache.size > 200) {
+          const firstKey = memoryCache.keys().next().value;
+          if (firstKey) memoryCache.delete(firstKey);
+        }
         writeLocalCache(mediaId, result);
         setThumbnail(result);
       }

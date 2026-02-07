@@ -4,6 +4,10 @@ node_modules/
 # Build output
 dist/
 
+# Prevent stale .js compiled output in client src from shadowing .tsx
+packages/client/src/**/*.js
+packages/client/src/**/*.js.map
+
 # Environment variables
 .env
 .env.local

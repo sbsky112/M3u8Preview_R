@@ -1,38 +1,7 @@
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../middleware/errorHandler.js';
 import type { Playlist, PlaylistItem } from '@m3u8-preview/shared';
-
-function serializePlaylist(playlist: any): Playlist {
-  return {
-    ...playlist,
-    createdAt: playlist.createdAt instanceof Date ? playlist.createdAt.toISOString() : playlist.createdAt,
-    updatedAt: playlist.updatedAt instanceof Date ? playlist.updatedAt.toISOString() : playlist.updatedAt,
-    items: playlist.items?.map(serializePlaylistItem),
-  };
-}
-
-function serializePlaylistItem(item: any): PlaylistItem {
-  return {
-    ...item,
-    createdAt: item.createdAt instanceof Date ? item.createdAt.toISOString() : item.createdAt,
-    media: item.media ? {
-      ...item.media,
-      createdAt: item.media.createdAt instanceof Date ? item.media.createdAt.toISOString() : item.media.createdAt,
-      updatedAt: item.media.updatedAt instanceof Date ? item.media.updatedAt.toISOString() : item.media.updatedAt,
-      category: item.media.category ? {
-        ...item.media.category,
-        createdAt: item.media.category.createdAt instanceof Date ? item.media.category.createdAt.toISOString() : item.media.category.createdAt,
-        updatedAt: item.media.category.updatedAt instanceof Date ? item.media.category.updatedAt.toISOString() : item.media.category.updatedAt,
-      } : item.media.category,
-      tags: item.media.tags?.map((mt: any) => ({
-        id: mt.tag?.id ?? mt.id,
-        name: mt.tag?.name ?? mt.name,
-        createdAt: (mt.tag?.createdAt ?? mt.createdAt) instanceof Date ? (mt.tag?.createdAt ?? mt.createdAt).toISOString() : (mt.tag?.createdAt ?? mt.createdAt),
-        updatedAt: (mt.tag?.updatedAt ?? mt.updatedAt) instanceof Date ? (mt.tag?.updatedAt ?? mt.updatedAt).toISOString() : (mt.tag?.updatedAt ?? mt.updatedAt),
-      })),
-    } : item.media,
-  };
-}
+import { serializePlaylist, serializePlaylistItem } from '../utils/serializers.js';
 
 const playlistItemInclude = {
   media: {
@@ -200,13 +169,25 @@ export const playlistService = {
       throw new AppError('Access denied', 403);
     }
 
-    // Update position for each item based on its index in the itemIds array
-    for (let i = 0; i < itemIds.length; i++) {
-      await prisma.playlistItem.update({
-        where: { id: itemIds[i] },
-        data: { position: i },
-      });
+    // M10: 校验 itemIds 都属于该 playlist，并使用事务批量更新（消除 N+1）
+    const existingItems = await prisma.playlistItem.findMany({
+      where: { playlistId },
+      select: { id: true },
+    });
+    const existingSet = new Set(existingItems.map(i => i.id));
+    const invalidIds = itemIds.filter(id => !existingSet.has(id));
+    if (invalidIds.length > 0) {
+      throw new AppError('Some item IDs do not belong to this playlist', 400);
     }
+
+    await prisma.$transaction(
+      itemIds.map((itemId, i) =>
+        prisma.playlistItem.update({
+          where: { id: itemId },
+          data: { position: i },
+        }),
+      ),
+    );
   },
 
   async getPublicPlaylists(page: number = 1, limit: number = 20): Promise<{ items: Playlist[]; total: number; page: number; limit: number; totalPages: number }> {

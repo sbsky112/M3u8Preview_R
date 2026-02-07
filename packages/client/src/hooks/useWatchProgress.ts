@@ -6,7 +6,7 @@ interface UseWatchProgressOptions {
   throttleMs?: number;
 }
 
-export function useWatchProgress({ mediaId, throttleMs = 10000 }: UseWatchProgressOptions) {
+export function useWatchProgress({ mediaId, throttleMs = 15000 }: UseWatchProgressOptions) {
   const lastSyncRef = useRef(0);
   const progressRef = useRef({ progress: 0, duration: 0 });
 
@@ -53,12 +53,15 @@ export function useWatchProgress({ mediaId, throttleMs = 10000 }: UseWatchProgre
     window.addEventListener('beforeunload', handleBeforeUnload);
 
     return () => {
-      // Final sync on unmount
-      syncProgress();
+      // Final sync on unmount — 使用 sendBeacon 保证可靠送达
+      const { progress, duration } = progressRef.current;
+      if (progress > 0 && duration > 0) {
+        historyApi.sendBeacon({ mediaId, progress, duration });
+      }
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [mediaId, syncProgress]);
+  }, [mediaId]);
 
   return { handleTimeUpdate };
 }

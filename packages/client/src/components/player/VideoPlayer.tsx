@@ -3,6 +3,9 @@ import Hls from 'hls.js';
 import { usePlayerStore } from '../../stores/playerStore.js';
 import type { Media } from '@m3u8-preview/shared';
 
+const MAX_NETWORK_RETRY = 5;
+const MAX_MEDIA_RETRY = 3;
+
 interface VideoPlayerProps {
   media: Media;
   startTime?: number;
@@ -15,6 +18,8 @@ export function VideoPlayer({ media, startTime = 0, onTimeUpdate, autoPlay = fal
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const networkRetryRef = useRef(0);
+  const mediaRetryRef = useRef(0);
   const { setPlaying, setCurrentTime, setDuration, setQualities, setQuality, quality } = usePlayerStore();
 
   const initHls = useCallback(() => {
@@ -56,12 +61,25 @@ export function VideoPlayer({ media, startTime = 0, onTimeUpdate, autoPlay = fal
         if (data.fatal) {
           switch (data.type) {
             case Hls.ErrorTypes.NETWORK_ERROR:
-              console.warn('HLS network error, attempting recovery...');
-              hls.startLoad();
+              if (networkRetryRef.current < MAX_NETWORK_RETRY) {
+                networkRetryRef.current++;
+                const delay = Math.min(1000 * Math.pow(2, networkRetryRef.current - 1), 16000);
+                console.warn(`HLS network error, retry ${networkRetryRef.current}/${MAX_NETWORK_RETRY} in ${delay}ms`);
+                setTimeout(() => hls.startLoad(), delay);
+              } else {
+                console.error('HLS network error: max retries exceeded');
+                hls.destroy();
+              }
               break;
             case Hls.ErrorTypes.MEDIA_ERROR:
-              console.warn('HLS media error, attempting recovery...');
-              hls.recoverMediaError();
+              if (mediaRetryRef.current < MAX_MEDIA_RETRY) {
+                mediaRetryRef.current++;
+                console.warn(`HLS media error, retry ${mediaRetryRef.current}/${MAX_MEDIA_RETRY}`);
+                hls.recoverMediaError();
+              } else {
+                console.error('HLS media error: max retries exceeded');
+                hls.destroy();
+              }
               break;
             default:
               console.error('Fatal HLS error:', data);
@@ -137,6 +155,11 @@ export function VideoPlayer({ media, startTime = 0, onTimeUpdate, autoPlay = fal
 
     function handleKeyDown(e: KeyboardEvent) {
       if (!video) return;
+      // S6: 输入框内不触发快捷键
+      const target = e.target as HTMLElement;
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || target.isContentEditable) {
+        return;
+      }
       switch (e.key) {
         case ' ':
         case 'k':

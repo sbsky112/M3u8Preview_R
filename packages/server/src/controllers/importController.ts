@@ -87,6 +87,10 @@ export const importController = {
       if (!items || !Array.isArray(items)) {
         throw new AppError('Items array is required', 400);
       }
+      // H7: 限制单次导入数据量，防止 DoS
+      if (items.length > 1000) {
+        throw new AppError('Maximum 1000 items per import', 400);
+      }
 
       const result = await importService.execute(
         req.user!.userId,

@@ -62,10 +62,10 @@ function AppRoutes() {
         <Route path="/playlists" element={<PlaylistsPage />} />
         <Route path="/playlists/:id" element={<PlaylistDetailPage />} />
         <Route path="/history" element={<HistoryPage />} />
-        <Route path="/admin" element={<AdminDashboardPage />} />
-        <Route path="/admin/users" element={<AdminUsersPage />} />
-        <Route path="/admin/media" element={<AdminMediaPage />} />
-        <Route path="/import" element={<ImportPage />} />
+        <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminDashboardPage /></ProtectedRoute>} />
+        <Route path="/admin/users" element={<ProtectedRoute requireAdmin><AdminUsersPage /></ProtectedRoute>} />
+        <Route path="/admin/media" element={<ProtectedRoute requireAdmin><AdminMediaPage /></ProtectedRoute>} />
+        <Route path="/import" element={<ProtectedRoute requireAdmin><ImportPage /></ProtectedRoute>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

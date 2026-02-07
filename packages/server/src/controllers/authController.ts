@@ -5,7 +5,17 @@ export const authController = {
   async register(req: Request, res: Response, next: NextFunction) {
     try {
       const { username, email, password } = req.body;
-      const result = await authService.register(username, email, password);
+      const { refreshToken, ...result } = await authService.register(username, email, password);
+
+      // M9: 注册也设置 refreshToken cookie，避免需要二次登录
+      res.cookie('refreshToken', refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        path: '/api/v1/auth',
+      });
+
       res.status(201).json({ success: true, data: result });
     } catch (error) {
       next(error);

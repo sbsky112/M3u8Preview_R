@@ -1,13 +1,16 @@
 import app from './app.js';
 import { config } from './config.js';
 import { prisma } from './lib/prisma.js';
+import type { Server } from 'http';
+
+let server: Server;
 
 async function main() {
   // Test database connection
   await prisma.$connect();
   console.log('Database connected');
 
-  app.listen(config.port, () => {
+  server = app.listen(config.port, () => {
     console.log(`Server running on http://localhost:${config.port}`);
     console.log(`Environment: ${config.nodeEnv}`);
   });
@@ -18,15 +21,35 @@ main().catch((err) => {
   process.exit(1);
 });
 
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-  console.log('SIGTERM received, shutting down...');
-  await prisma.$disconnect();
-  process.exit(0);
+// L8: 未捕获异常和未处理 Promise rejection
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled Rejection:', reason);
 });
 
-process.on('SIGINT', async () => {
-  console.log('SIGINT received, shutting down...');
-  await prisma.$disconnect();
-  process.exit(0);
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+  process.exit(1);
 });
+
+// L9: 优雅关闭 - 等待请求完成
+async function gracefulShutdown(signal: string) {
+  console.log(`${signal} received, shutting down gracefully...`);
+  if (server) {
+    server.close(async () => {
+      console.log('HTTP server closed');
+      await prisma.$disconnect();
+      process.exit(0);
+    });
+    // 超时强制退出
+    setTimeout(() => {
+      console.error('Forced shutdown after timeout');
+      process.exit(1);
+    }, 10000);
+  } else {
+    await prisma.$disconnect();
+    process.exit(0);
+  }
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));

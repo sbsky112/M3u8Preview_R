@@ -1,20 +1,22 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
-import { ArrowLeft, Film, Play, Plus, Star } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ArrowLeft, Film, Play, Plus, Star, RotateCcw, Check } from 'lucide-react';
 import { mediaApi } from '../services/mediaApi.js';
+import { historyApi } from '../services/historyApi.js';
 import { FavoriteButton } from '../components/media/FavoriteButton.js';
 import { MediaCard } from '../components/media/MediaCard.js';
 import { AddToPlaylistModal } from '../components/playlist/AddToPlaylistModal.js';
 import { ScrollRow } from '../components/ui/ScrollRow.js';
 import { useVideoThumbnail } from '../hooks/useVideoThumbnail.js';
 import { useProgressMap } from '../hooks/useProgressMap.js';
-import { formatDate } from '../lib/utils.js';
+import { formatDate, formatDuration } from '../lib/utils.js';
 
 export function MediaDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [showAddToPlaylist, setShowAddToPlaylist] = useState(false);
+  const viewIncrementedRef = useRef(false);
 
   const { data: media, isLoading, error } = useQuery({
     queryKey: ['media', id],
@@ -45,9 +47,17 @@ export function MediaDetailPage() {
 
   const { data: progressMap } = useProgressMap();
 
+  // 查询当前媒体的观看进度
+  const { data: watchProgress } = useQuery({
+    queryKey: ['watchProgress', id],
+    queryFn: () => historyApi.getProgress(id!),
+    enabled: !!id,
+  });
+
   // Increment views
   useEffect(() => {
-    if (id) {
+    if (id && !viewIncrementedRef.current) {
+      viewIncrementedRef.current = true;
       mediaApi.incrementViews(id).catch(() => {});
     }
   }, [id]);
@@ -115,12 +125,24 @@ export function MediaDetailPage() {
 
           {/* Poster - hidden on mobile */}
           <div className="hidden md:block w-52 flex-shrink-0">
-            <div className="aspect-[2/3] rounded-md overflow-hidden shadow-2xl">
+            <div className="relative aspect-[2/3] rounded-md overflow-hidden shadow-2xl">
               {thumbnail ? (
                 <img src={thumbnail} alt={media.title} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full bg-emby-bg-card flex items-center justify-center">
                   <Film className="w-16 h-16 text-emby-text-muted" />
+                </div>
+              )}
+              {/* Emby 风格封面进度条 */}
+              {watchProgress && !watchProgress.completed && watchProgress.percentage > 0 && (
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/40">
+                  <div className="h-full bg-emby-green" style={{ width: `${Math.min(100, watchProgress.percentage)}%` }} />
+                </div>
+              )}
+              {/* 已看完标记 */}
+              {watchProgress?.completed && (
+                <div className="absolute bottom-2 right-2 bg-emby-green rounded-full p-0.5">
+                  <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />
                 </div>
               )}
             </div>
@@ -171,8 +193,22 @@ export function MediaDetailPage() {
                 onClick={handlePlay}
                 className="flex items-center gap-2 px-6 py-2.5 bg-emby-green text-white rounded-md hover:bg-emby-green-hover font-medium transition-colors"
               >
-                <Play className="w-5 h-5 fill-white" />
-                播放
+                {watchProgress?.completed ? (
+                  <>
+                    <RotateCcw className="w-5 h-5" />
+                    重新播放
+                  </>
+                ) : watchProgress && watchProgress.progress > 0 ? (
+                  <>
+                    <Play className="w-5 h-5 fill-white" />
+                    继续播放 {formatDuration(watchProgress.progress)}
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-5 h-5 fill-white" />
+                    播放
+                  </>
+                )}
               </button>
               <FavoriteButton mediaId={media.id} />
               <button
@@ -185,6 +221,13 @@ export function MediaDetailPage() {
             </div>
           </div>
         </div>
+
+        {/* Mobile: Emby 风格进度条（移动端无封面，放在 Hero 底部） */}
+        {watchProgress && !watchProgress.completed && watchProgress.percentage > 0 && (
+          <div className="md:hidden absolute bottom-0 left-0 right-0 h-1 bg-black/40 z-10">
+            <div className="h-full bg-emby-green" style={{ width: `${Math.min(100, watchProgress.percentage)}%` }} />
+          </div>
+        )}
       </div>
 
       {/* 推荐内容 */}

@@ -23,7 +23,7 @@ function sanitizeUser(user: any): User {
 }
 
 export const authService = {
-  async register(username: string, email: string, password: string): Promise<AuthResponse> {
+  async register(username: string, email: string, password: string): Promise<AuthResponse & { refreshToken: string }> {
     // Check if user exists
     const existing = await prisma.user.findFirst({
       where: { OR: [{ username }, { email }] },
@@ -50,9 +50,11 @@ export const authService = {
       },
     });
 
+    // M9: 注册也返回 refreshToken，与 login 一致
     return {
       user: sanitizeUser(user),
       accessToken,
+      refreshToken,
     };
   },
 

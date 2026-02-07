@@ -69,6 +69,9 @@ api.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError, null);
         localStorage.removeItem('accessToken');
+        // H3: 通过 store logout 走正规流程，避免直接跳转丢失状态
+        const { useAuthStore } = await import('../stores/authStore.js');
+        useAuthStore.getState().setUser(null);
         window.location.href = '/login';
         return Promise.reject(refreshError);
       } finally {
