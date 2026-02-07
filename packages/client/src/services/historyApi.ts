@@ -29,9 +29,22 @@ export const historyApi = {
     await api.delete('/history/clear');
   },
 
-  // Beacon API for unload events
+  // keepalive fetch for unload events (sendBeacon doesn't support auth headers)
   sendBeacon(data: WatchProgressUpdate) {
-    const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-    navigator.sendBeacon('/api/v1/history/progress', blob);
+    const token = localStorage.getItem('accessToken');
+    fetch('/api/v1/history/progress', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(data),
+      keepalive: true,
+    }).catch(() => {});
+  },
+
+  async getProgressMap() {
+    const { data } = await api.get<ApiResponse<Record<string, { percentage: number; completed: boolean }>>>('/history/progress-map');
+    return data.data!;
   },
 };

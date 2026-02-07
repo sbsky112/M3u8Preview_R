@@ -2,7 +2,7 @@ import { jsx as _jsx } from "react/jsx-runtime";
 import { useEffect, useRef, useCallback } from 'react';
 import Hls from 'hls.js';
 import { usePlayerStore } from '../../stores/playerStore.js';
-export function VideoPlayer({ media, startTime = 0, onTimeUpdate, autoPlay = false }) {
+export function VideoPlayer({ media, startTime = 0, onTimeUpdate, autoPlay = false, fillContainer = false }) {
     const videoRef = useRef(null);
     const hlsRef = useRef(null);
     const containerRef = useRef(null);
@@ -155,5 +155,5 @@ export function VideoPlayer({ media, startTime = 0, onTimeUpdate, autoPlay = fal
         document.addEventListener('keydown', handleKeyDown);
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, []);
-    return (_jsx("div", { ref: containerRef, className: "relative bg-black rounded-lg overflow-hidden", children: _jsx("video", { ref: videoRef, className: "w-full aspect-video", controls: true, playsInline: true }) }));
+    return (_jsx("div", { ref: containerRef, className: fillContainer ? "relative bg-black w-full h-full overflow-hidden" : "relative bg-black rounded-lg overflow-hidden", children: _jsx("video", { ref: videoRef, className: fillContainer ? "w-full h-full object-contain" : "w-full aspect-video", controls: true, playsInline: true }) }));
 }

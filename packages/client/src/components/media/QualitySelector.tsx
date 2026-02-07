@@ -2,7 +2,11 @@ import { useState, useRef, useEffect } from 'react';
 import { Settings } from 'lucide-react';
 import { usePlayerStore } from '../../stores/playerStore.js';
 
-export function QualitySelector() {
+interface QualitySelectorProps {
+  dropDirection?: 'up' | 'down';
+}
+
+export function QualitySelector({ dropDirection = 'up' }: QualitySelectorProps) {
   const { qualities, quality, setQuality } = usePlayerStore();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -30,7 +34,7 @@ export function QualitySelector() {
       </button>
 
       {open && (
-        <div className="absolute bottom-full mb-2 right-0 bg-emby-bg-dialog border border-emby-border rounded-md shadow-xl py-1 min-w-[120px]">
+        <div className={`absolute ${dropDirection === 'down' ? 'top-full mt-2' : 'bottom-full mb-2'} right-0 bg-emby-bg-dialog border border-emby-border rounded-md shadow-xl py-1 min-w-[120px]`}>
           <button
             onClick={() => { setQuality(-1); setOpen(false); }}
             className={`w-full text-left px-4 py-2 text-sm hover:bg-emby-bg-elevated ${quality === -1 ? 'text-emby-green-light' : 'text-emby-text-primary'}`}

@@ -19,6 +19,7 @@ import { ImportPage } from './pages/ImportPage.js';
 import { AdminDashboardPage } from './pages/AdminDashboardPage.js';
 import { AdminUsersPage } from './pages/AdminUsersPage.js';
 import { AdminMediaPage } from './pages/AdminMediaPage.js';
+import { PlaybackPage } from './pages/PlaybackPage.js';
 import './index.css';
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -34,7 +35,7 @@ function AppRoutes() {
     if (isLoading) {
         return (_jsx("div", { className: "min-h-screen bg-emby-bg-base flex items-center justify-center", children: _jsx("div", { className: "animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-emby-green" }) }));
     }
-    return (_jsxs(Routes, { children: [_jsx(Route, { path: "/login", element: _jsx(LoginPage, {}) }), _jsx(Route, { path: "/register", element: _jsx(RegisterPage, {}) }), _jsxs(Route, { element: _jsx(ProtectedRoute, { children: _jsx(AppLayout, {}) }), children: [_jsx(Route, { path: "/", element: _jsx(HomePage, {}) }), _jsx(Route, { path: "/library", element: _jsx(LibraryPage, {}) }), _jsx(Route, { path: "/media/:id", element: _jsx(MediaDetailPage, {}) }), _jsx(Route, { path: "/favorites", element: _jsx(FavoritesPage, {}) }), _jsx(Route, { path: "/playlists", element: _jsx(PlaylistsPage, {}) }), _jsx(Route, { path: "/playlists/:id", element: _jsx(PlaylistDetailPage, {}) }), _jsx(Route, { path: "/history", element: _jsx(HistoryPage, {}) }), _jsx(Route, { path: "/admin", element: _jsx(AdminDashboardPage, {}) }), _jsx(Route, { path: "/admin/users", element: _jsx(AdminUsersPage, {}) }), _jsx(Route, { path: "/admin/media", element: _jsx(AdminMediaPage, {}) }), _jsx(Route, { path: "/import", element: _jsx(ImportPage, {}) })] }), _jsx(Route, { path: "*", element: _jsx(Navigate, { to: "/", replace: true }) })] }));
+    return (_jsxs(Routes, { children: [_jsx(Route, { path: "/login", element: _jsx(LoginPage, {}) }), _jsx(Route, { path: "/register", element: _jsx(RegisterPage, {}) }), _jsx(Route, { path: "/play/:id", element: _jsx(ProtectedRoute, { children: _jsx(PlaybackPage, {}) }) }), _jsxs(Route, { element: _jsx(ProtectedRoute, { children: _jsx(AppLayout, {}) }), children: [_jsx(Route, { path: "/", element: _jsx(HomePage, {}) }), _jsx(Route, { path: "/library", element: _jsx(LibraryPage, {}) }), _jsx(Route, { path: "/media/:id", element: _jsx(MediaDetailPage, {}) }), _jsx(Route, { path: "/favorites", element: _jsx(FavoritesPage, {}) }), _jsx(Route, { path: "/playlists", element: _jsx(PlaylistsPage, {}) }), _jsx(Route, { path: "/playlists/:id", element: _jsx(PlaylistDetailPage, {}) }), _jsx(Route, { path: "/history", element: _jsx(HistoryPage, {}) }), _jsx(Route, { path: "/admin", element: _jsx(AdminDashboardPage, {}) }), _jsx(Route, { path: "/admin/users", element: _jsx(AdminUsersPage, {}) }), _jsx(Route, { path: "/admin/media", element: _jsx(AdminMediaPage, {}) }), _jsx(Route, { path: "/import", element: _jsx(ImportPage, {}) })] }), _jsx(Route, { path: "*", element: _jsx(Navigate, { to: "/", replace: true }) })] }));
 }
 function App() {
     return (_jsx(QueryClientProvider, { client: queryClient, children: _jsx(BrowserRouter, { children: _jsx(AppRoutes, {}) }) }));

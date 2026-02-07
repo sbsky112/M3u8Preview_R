@@ -86,4 +86,16 @@ export const watchHistoryController = {
       next(error);
     }
   },
+
+  async getProgressMap(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) {
+        throw new AppError('Authentication required', 401);
+      }
+      const map = await watchHistoryService.getProgressMap(req.user.userId);
+      res.json({ success: true, data: map });
+    } catch (error) {
+      next(error);
+    }
+  },
 };

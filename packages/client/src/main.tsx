@@ -18,6 +18,7 @@ import { ImportPage } from './pages/ImportPage.js';
 import { AdminDashboardPage } from './pages/AdminDashboardPage.js';
 import { AdminUsersPage } from './pages/AdminUsersPage.js';
 import { AdminMediaPage } from './pages/AdminMediaPage.js';
+import { PlaybackPage } from './pages/PlaybackPage.js';
 import './index.css';
 
 const queryClient = new QueryClient({
@@ -45,6 +46,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route path="/play/:id" element={<ProtectedRoute><PlaybackPage /></ProtectedRoute>} />
       <Route
         element={
           <ProtectedRoute>

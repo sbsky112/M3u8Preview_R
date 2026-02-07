@@ -17,6 +17,7 @@ router.use(authenticate);
 router.post('/progress', validate(watchProgressSchema), watchHistoryController.updateProgress);
 router.get('/', watchHistoryController.getHistory);
 router.get('/continue', watchHistoryController.getContinueWatching);
+router.get('/progress-map', watchHistoryController.getProgressMap);
 router.get('/:mediaId', validate(mediaIdParamSchema, 'params'), watchHistoryController.getProgress);
 router.delete('/clear', watchHistoryController.clearHistory);
 router.delete('/:id', validate(idParamSchema, 'params'), watchHistoryController.deleteHistory);

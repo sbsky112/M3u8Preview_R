@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Film, Play, Star } from 'lucide-react';
+import { Film, Play, Star, Check } from 'lucide-react';
 import { useVideoThumbnail } from '../../hooks/useVideoThumbnail.js';
 import type { Media } from '@m3u8-preview/shared';
 
@@ -9,9 +9,10 @@ interface MediaCardProps {
   showProgress?: boolean;
   progress?: number;
   progressText?: string;
+  completed?: boolean;
 }
 
-export function MediaCard({ media, variant = 'portrait', showProgress = false, progress = 0, progressText }: MediaCardProps) {
+export function MediaCard({ media, variant = 'portrait', showProgress = false, progress = 0, progressText, completed }: MediaCardProps) {
   const thumbnail = useVideoThumbnail(media.id, media.m3u8Url, media.posterUrl);
 
   if (variant === 'landscape') {
@@ -92,12 +93,26 @@ export function MediaCard({ media, variant = 'portrait', showProgress = false, p
           </span>
         )}
 
-        {/* Rating badge - bottom right */}
-        {media.rating && (
+        {/* Rating badge - bottom right (hidden when completed to avoid overlap) */}
+        {!completed && media.rating && (
           <span className="absolute bottom-2 right-2 bg-black/60 text-yellow-400 text-xs px-2 py-0.5 rounded font-medium flex items-center gap-0.5">
             <Star className="w-3 h-3 fill-yellow-400" />
             {media.rating.toFixed(1)}
           </span>
+        )}
+
+        {/* 观看进度条 */}
+        {showProgress && !completed && progress > 0 && (
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/40 z-[1]">
+            <div className="h-full bg-emby-green" style={{ width: `${Math.min(100, progress)}%` }} />
+          </div>
+        )}
+
+        {/* 已看完标记 */}
+        {completed && (
+          <div className="absolute bottom-2 right-2 bg-emby-green rounded-full p-0.5 z-[1]">
+            <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />
+          </div>
         )}
       </div>
 

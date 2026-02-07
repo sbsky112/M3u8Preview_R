@@ -57,6 +57,18 @@ export const watchHistoryService = {
     const percentage = duration > 0 ? Math.min((progress / duration) * 100, 100) : 0;
     const completed = percentage >= 90;
 
+    // 防回退：新值小于旧值且小于 30 秒 → 判定为初始化回退，跳过更新
+    const existing = await prisma.watchHistory.findUnique({
+      where: { userId_mediaId: { userId, mediaId } },
+    });
+    if (existing && progress < existing.progress && progress < 30) {
+      const full = await prisma.watchHistory.findUnique({
+        where: { userId_mediaId: { userId, mediaId } },
+        include: { media: { include: mediaInclude } },
+      });
+      return serializeHistory(full);
+    }
+
     const history = await prisma.watchHistory.upsert({
       where: {
         userId_mediaId: { userId, mediaId },
@@ -158,5 +170,17 @@ export const watchHistoryService = {
 
   async clearHistory(userId: string): Promise<void> {
     await prisma.watchHistory.deleteMany({ where: { userId } });
+  },
+
+  async getProgressMap(userId: string): Promise<Record<string, { percentage: number; completed: boolean }>> {
+    const histories = await prisma.watchHistory.findMany({
+      where: { userId, progress: { gt: 0 } },
+      select: { mediaId: true, percentage: true, completed: true },
+    });
+    const map: Record<string, { percentage: number; completed: boolean }> = {};
+    for (const h of histories) {
+      map[h.mediaId] = { percentage: h.percentage, completed: h.completed };
+    }
+    return map;
   },
 };

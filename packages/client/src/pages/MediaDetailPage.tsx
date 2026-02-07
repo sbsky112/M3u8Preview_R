@@ -1,23 +1,20 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState, useRef } from 'react';
-import { Film, Play, Plus, Star } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ArrowLeft, Film, Play, Plus, Star } from 'lucide-react';
 import { mediaApi } from '../services/mediaApi.js';
-import { historyApi } from '../services/historyApi.js';
-import { VideoPlayer } from '../components/player/VideoPlayer.js';
 import { FavoriteButton } from '../components/media/FavoriteButton.js';
-import { QualitySelector } from '../components/media/QualitySelector.js';
+import { MediaCard } from '../components/media/MediaCard.js';
 import { AddToPlaylistModal } from '../components/playlist/AddToPlaylistModal.js';
-import { useWatchProgress } from '../hooks/useWatchProgress.js';
+import { ScrollRow } from '../components/ui/ScrollRow.js';
 import { useVideoThumbnail } from '../hooks/useVideoThumbnail.js';
+import { useProgressMap } from '../hooks/useProgressMap.js';
 import { formatDate } from '../lib/utils.js';
 
 export function MediaDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [showAddToPlaylist, setShowAddToPlaylist] = useState(false);
-  const [showPlayer, setShowPlayer] = useState(false);
-  const playerRef = useRef<HTMLDivElement>(null);
 
   const { data: media, isLoading, error } = useQuery({
     queryKey: ['media', id],
@@ -25,13 +22,19 @@ export function MediaDetailPage() {
     enabled: !!id,
   });
 
-  const { data: progress } = useQuery({
-    queryKey: ['watchProgress', id],
-    queryFn: () => historyApi.getProgress(id!),
-    enabled: !!id,
+  // 同类推荐
+  const { data: categoryMedia } = useQuery({
+    queryKey: ['media', 'category', media?.categoryId],
+    queryFn: () => mediaApi.getAll({ categoryId: media!.categoryId!, limit: 12 }),
+    enabled: !!media?.categoryId,
   });
 
-  const { handleTimeUpdate } = useWatchProgress({ mediaId: id! });
+  // 随机推荐
+  const { data: randomMedia } = useQuery({
+    queryKey: ['media', 'random-detail', id],
+    queryFn: () => mediaApi.getRandom(12),
+    enabled: !!media,
+  });
 
   // 使用缩略图 hook 获取封面
   const thumbnail = useVideoThumbnail(
@@ -40,6 +43,8 @@ export function MediaDetailPage() {
     media?.posterUrl,
   );
 
+  const { data: progressMap } = useProgressMap();
+
   // Increment views
   useEffect(() => {
     if (id) {
@@ -47,15 +52,8 @@ export function MediaDetailPage() {
     }
   }, [id]);
 
-  // 播放器可见后自动滚动
-  useEffect(() => {
-    if (showPlayer && playerRef.current) {
-      playerRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  }, [showPlayer]);
-
   function handlePlay() {
-    setShowPlayer(true);
+    navigate(`/play/${media!.id}`);
   }
 
   if (isLoading) {
@@ -106,6 +104,15 @@ export function MediaDetailPage() {
 
         {/* Foreground content */}
         <div className="relative px-6 lg:px-8 py-10 flex gap-8 items-end min-h-[360px]">
+          {/* 返回按钮 */}
+          <button
+            onClick={() => navigate(-1)}
+            className="absolute top-4 left-4 lg:left-6 p-2 rounded-lg bg-black/40 hover:bg-black/60 text-white transition-colors z-10"
+            aria-label="返回"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+
           {/* Poster - hidden on mobile */}
           <div className="hidden md:block w-52 flex-shrink-0">
             <div className="aspect-[2/3] rounded-md overflow-hidden shadow-2xl">
@@ -175,38 +182,43 @@ export function MediaDetailPage() {
                 <Plus className="w-4 h-4" />
                 添加到列表
               </button>
-              <QualitySelector />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Player / Placeholder */}
-      <div ref={playerRef} className="max-w-5xl mx-auto mt-6">
-        {showPlayer ? (
-          <VideoPlayer
-            media={media}
-            startTime={progress?.progress || 0}
-            onTimeUpdate={handleTimeUpdate}
-            autoPlay
-          />
-        ) : (
-          <div
-            onClick={handlePlay}
-            className="aspect-video bg-emby-bg-card rounded-lg flex items-center justify-center cursor-pointer group hover:bg-emby-bg-elevated transition-colors relative overflow-hidden"
-          >
-            {/* 封面预览背景 */}
-            {thumbnail && (
-              <img
-                src={thumbnail}
-                alt=""
-                className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:opacity-50 transition-opacity"
-              />
-            )}
-            <div className="relative w-20 h-20 bg-emby-green/80 group-hover:bg-emby-green rounded-full flex items-center justify-center transition-colors">
-              <Play className="w-10 h-10 text-white fill-white ml-1" />
-            </div>
-          </div>
+      {/* 推荐内容 */}
+      <div className="max-w-5xl mx-auto mt-8 space-y-8 pb-8">
+        {/* 同类推荐 */}
+        {categoryMedia?.items && categoryMedia.items.filter(m => m.id !== media.id).length > 0 && (
+          <ScrollRow title="同类推荐">
+            {categoryMedia.items
+              .filter(m => m.id !== media.id)
+              .map(m => {
+                const prog = progressMap?.[m.id];
+                return (
+                  <div key={m.id} className="w-[140px] sm:w-[160px] lg:w-[170px] flex-shrink-0 snap-start">
+                    <MediaCard media={m} variant="portrait" showProgress={!!prog} progress={prog?.percentage} completed={prog?.completed} />
+                  </div>
+                );
+              })}
+          </ScrollRow>
+        )}
+
+        {/* 随机推荐 */}
+        {randomMedia && randomMedia.filter(m => m.id !== media.id).length > 0 && (
+          <ScrollRow title="你可能喜欢">
+            {randomMedia
+              .filter(m => m.id !== media.id)
+              .map(m => {
+                const prog = progressMap?.[m.id];
+                return (
+                  <div key={m.id} className="w-[140px] sm:w-[160px] lg:w-[170px] flex-shrink-0 snap-start">
+                    <MediaCard media={m} variant="portrait" showProgress={!!prog} progress={prog?.percentage} completed={prog?.completed} />
+                  </div>
+                );
+              })}
+          </ScrollRow>
         )}
       </div>
 

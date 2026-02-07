@@ -8,9 +8,10 @@ interface VideoPlayerProps {
   startTime?: number;
   onTimeUpdate?: (currentTime: number, duration: number) => void;
   autoPlay?: boolean;
+  fillContainer?: boolean;
 }
 
-export function VideoPlayer({ media, startTime = 0, onTimeUpdate, autoPlay = false }: VideoPlayerProps) {
+export function VideoPlayer({ media, startTime = 0, onTimeUpdate, autoPlay = false, fillContainer = false }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -178,10 +179,10 @@ export function VideoPlayer({ media, startTime = 0, onTimeUpdate, autoPlay = fal
   }, []);
 
   return (
-    <div ref={containerRef} className="relative bg-black rounded-lg overflow-hidden">
+    <div ref={containerRef} className={fillContainer ? "relative bg-black w-full h-full overflow-hidden" : "relative bg-black rounded-lg overflow-hidden"}>
       <video
         ref={videoRef}
-        className="w-full aspect-video"
+        className={fillContainer ? "w-full h-full object-contain" : "w-full aspect-video"}
         controls
         playsInline
       />

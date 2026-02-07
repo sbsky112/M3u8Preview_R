@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { mediaApi } from '../services/mediaApi.js';
 import { categoryApi } from '../services/categoryApi.js';
 import { MediaGrid } from '../components/media/MediaGrid.js';
+import { useProgressMap } from '../hooks/useProgressMap.js';
 import type { Category } from '@m3u8-preview/shared';
 
 export function LibraryPage() {
@@ -30,6 +31,8 @@ export function LibraryPage() {
       sortOrder,
     }),
   });
+
+  const { data: progressMap } = useProgressMap();
 
   return (
     <div className="space-y-6">
@@ -86,7 +89,7 @@ export function LibraryPage() {
         </div>
       ) : data ? (
         <>
-          <MediaGrid items={data.items} emptyMessage="没有找到匹配的媒体" />
+          <MediaGrid items={data.items} emptyMessage="没有找到匹配的媒体" progressMap={progressMap} />
 
           {data.totalPages > 1 && (
             <div className="flex items-center justify-center gap-2 pt-4">

@@ -3,6 +3,7 @@ import { mediaApi } from '../services/mediaApi.js';
 import { historyApi } from '../services/historyApi.js';
 import { ScrollRow } from '../components/ui/ScrollRow.js';
 import { MediaCard } from '../components/media/MediaCard.js';
+import { useProgressMap } from '../hooks/useProgressMap.js';
 import { formatDuration } from '../lib/utils.js';
 import type { WatchHistory } from '@m3u8-preview/shared';
 
@@ -21,6 +22,8 @@ export function HomePage() {
     queryKey: ['history', 'continue'],
     queryFn: () => historyApi.getContinueWatching(15),
   });
+
+  const { data: progressMap } = useProgressMap();
 
   if (recentLoading) {
     return (
@@ -62,22 +65,28 @@ export function HomePage() {
       {/* Random - portrait cards */}
       {randomMedia && randomMedia.length > 0 && (
         <ScrollRow title="随机推荐" moreLink="/library">
-          {randomMedia.map((media) => (
-            <div key={media.id} className="w-[140px] sm:w-[160px] lg:w-[170px] flex-shrink-0 snap-start">
-              <MediaCard media={media} variant="portrait" />
-            </div>
-          ))}
+          {randomMedia.map((media) => {
+            const prog = progressMap?.[media.id];
+            return (
+              <div key={media.id} className="w-[140px] sm:w-[160px] lg:w-[170px] flex-shrink-0 snap-start">
+                <MediaCard media={media} variant="portrait" showProgress={!!prog} progress={prog?.percentage} completed={prog?.completed} />
+              </div>
+            );
+          })}
         </ScrollRow>
       )}
 
       {/* Recent - portrait cards */}
       {recentMedia && recentMedia.length > 0 && (
         <ScrollRow title="最近添加" moreLink="/library">
-          {recentMedia.map((media) => (
-            <div key={media.id} className="w-[140px] sm:w-[160px] lg:w-[170px] flex-shrink-0 snap-start">
-              <MediaCard media={media} variant="portrait" />
-            </div>
-          ))}
+          {recentMedia.map((media) => {
+            const prog = progressMap?.[media.id];
+            return (
+              <div key={media.id} className="w-[140px] sm:w-[160px] lg:w-[170px] flex-shrink-0 snap-start">
+                <MediaCard media={media} variant="portrait" showProgress={!!prog} progress={prog?.percentage} completed={prog?.completed} />
+              </div>
+            );
+          })}
         </ScrollRow>
       )}
     </div>
