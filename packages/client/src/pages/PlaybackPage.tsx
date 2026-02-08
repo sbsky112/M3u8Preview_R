@@ -54,14 +54,16 @@ export function PlaybackPage() {
     };
   }, []);
 
-  // 返回时刷新进度数据，确保详情页能看到最新进度
+  // 返回时刷新进度数据，确保详情页和首页都能看到最新进度
   // 延迟 invalidate，等待 sendBeacon 的进度数据先到达服务端
   useEffect(() => {
     return () => {
       setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: ['watchProgress', id] });
         queryClient.invalidateQueries({ queryKey: ['progressMap'] });
-      }, 300);
+        queryClient.invalidateQueries({ queryKey: ['history', 'continue'] });
+        queryClient.invalidateQueries({ queryKey: ['history'] });
+      }, 500);
     };
   }, [id, queryClient]);
 

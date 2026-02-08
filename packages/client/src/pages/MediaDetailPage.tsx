@@ -38,13 +38,6 @@ export function MediaDetailPage() {
     enabled: !!media,
   });
 
-  // 使用缩略图 hook 获取封面
-  const thumbnail = useVideoThumbnail(
-    media?.id ?? '',
-    media?.m3u8Url ?? '',
-    media?.posterUrl,
-  );
-
   const { data: progressMap } = useProgressMap();
 
   // 查询当前媒体的观看进度
@@ -53,6 +46,14 @@ export function MediaDetailPage() {
     queryFn: () => historyApi.getProgress(id!),
     enabled: !!id,
   });
+
+  // 使用缩略图 hook 获取封面
+  const thumbnail = useVideoThumbnail(
+    media?.id ?? '',
+    media?.m3u8Url ?? '',
+    media?.posterUrl,
+    watchProgress?.percentage,
+  );
 
   // Increment views
   useEffect(() => {

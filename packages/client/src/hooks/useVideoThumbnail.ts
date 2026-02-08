@@ -2,9 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import Hls from 'hls.js';
 
 /**
- * 从 m3u8 视频流中提取随机帧作为封面缩略图。
+ * 从 m3u8 视频流中提取封面缩略图。
  *
- * 优先级：posterUrl > 内存缓存 > localStorage 缓存 > 在线提取。
+ * 当传入 watchedPercentage 时，截取观看进度所在帧；否则随机截取 10%~40% 位置的帧。
+ * 优先级：posterUrl > 内存缓存(进度匹配) > localStorage 缓存(进度匹配) > 在线提取。
  * 并发控制：最多同时 3 个提取任务，超出排队等待。
  */
 
@@ -14,6 +15,7 @@ const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 天
 
 // 模块级单例缓存
 const memoryCache = new Map<string, string>();
+const cachedPctMap = new Map<string, number | undefined>(); // 记录每个 mediaId 提取缩略图时使用的 roundedPct
 let activeExtractions = 0;
 const pendingQueue: Array<() => void> = [];
 
@@ -88,7 +90,11 @@ function writeLocalCache(mediaId: string, dataUrl: string) {
  * 从 m3u8 提取一帧画面。
  * 返回 JPEG base64 data URL 或 null（失败时）。
  */
-async function extractFrame(m3u8Url: string, abortSignal: AbortSignal): Promise<string | null> {
+async function extractFrame(
+  m3u8Url: string,
+  abortSignal: AbortSignal,
+  seekPercentage?: number, // 0-100, undefined → 随机
+): Promise<string | null> {
   return new Promise<string | null>((resolve) => {
     if (abortSignal.aborted) {
       resolve(null);
@@ -148,14 +154,18 @@ async function extractFrame(m3u8Url: string, abortSignal: AbortSignal): Promise<
         video.addEventListener('durationchange', () => {
           const d = video.duration;
           if (d && isFinite(d)) {
-            video.currentTime = d * (0.1 + Math.random() * 0.3);
+            video.currentTime = seekPercentage != null
+              ? d * Math.min(seekPercentage / 100, 0.95)
+              : d * (0.1 + Math.random() * 0.3);
           } else {
             done(null);
           }
         }, { once: true });
         return;
       }
-      video.currentTime = duration * (0.1 + Math.random() * 0.3);
+      video.currentTime = seekPercentage != null
+        ? duration * Math.min(seekPercentage / 100, 0.95)  // 进度帧（上限 95% 防末尾黑屏）
+        : duration * (0.1 + Math.random() * 0.3);           // 无进度时保持随机
     }
 
     video.addEventListener('seeked', onSeeked, { once: true });
@@ -184,13 +194,22 @@ export function useVideoThumbnail(
   mediaId: string,
   m3u8Url: string,
   posterUrl?: string | null,
+  watchedPercentage?: number, // 0-100，观看进度百分比
 ): string | null {
+  // 5% 粒度取整，用于缓存匹配和刷新判断
+  const roundedPct = watchedPercentage != null && watchedPercentage > 0
+    ? Math.max(5, Math.min(95, Math.round(watchedPercentage / 5) * 5))
+    : undefined;
+
   const [thumbnail, setThumbnail] = useState<string | null>(() => {
     // 同步初始化：posterUrl > 内存缓存 > localStorage
     if (posterUrl) return posterUrl;
     if (!mediaId) return null;
     const mem = memoryCache.get(mediaId);
-    if (mem) return mem;
+    if (mem) {
+      // 有缓存但进度不匹配时，仍先返回旧缓存（后续 effect 会刷新）
+      return mem;
+    }
     const local = readLocalCache(mediaId);
     if (local) {
       memoryCache.set(mediaId, local);
@@ -211,16 +230,24 @@ export function useVideoThumbnail(
     // 无 mediaId 或无 m3u8Url 时跳过
     if (!mediaId || !m3u8Url) return;
 
-    // 已有缓存时跳过
-    if (memoryCache.has(mediaId)) {
+    // 检查缓存：命中 且 进度匹配 → 跳过提取
+    const hasMem = memoryCache.has(mediaId);
+    const cachedPct = cachedPctMap.get(mediaId);
+    const pctMatches = roundedPct === cachedPct;
+
+    if (hasMem && pctMatches) {
       setThumbnail(memoryCache.get(mediaId)!);
       return;
     }
-    const localCached = readLocalCache(mediaId);
-    if (localCached) {
-      memoryCache.set(mediaId, localCached);
-      setThumbnail(localCached);
-      return;
+
+    // 无内存缓存时尝试 localStorage（仅在进度也匹配时才命中）
+    if (!hasMem) {
+      const localCached = readLocalCache(mediaId);
+      if (localCached && pctMatches) {
+        memoryCache.set(mediaId, localCached);
+        setThumbnail(localCached);
+        return;
+      }
     }
 
     // 需要在线提取
@@ -236,17 +263,21 @@ export function useVideoThumbnail(
         return;
       }
 
-      const result = await extractFrame(m3u8Url, controller.signal);
+      const result = await extractFrame(m3u8Url, controller.signal, roundedPct);
       releaseSlot();
 
       if (cancelled) return;
 
       if (result) {
         memoryCache.set(mediaId, result);
+        cachedPctMap.set(mediaId, roundedPct);
         // M2: 限制内存缓存大小，防止内存泄漏
         if (memoryCache.size > 200) {
           const firstKey = memoryCache.keys().next().value;
-          if (firstKey) memoryCache.delete(firstKey);
+          if (firstKey) {
+            memoryCache.delete(firstKey);
+            cachedPctMap.delete(firstKey);
+          }
         }
         writeLocalCache(mediaId, result);
         setThumbnail(result);
@@ -258,7 +289,7 @@ export function useVideoThumbnail(
       controller.abort();
       abortRef.current = null;
     };
-  }, [mediaId, m3u8Url, posterUrl]);
+  }, [mediaId, m3u8Url, posterUrl, roundedPct]);
 
   return thumbnail;
 }
