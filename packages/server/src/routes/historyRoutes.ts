@@ -2,12 +2,7 @@ import { Router } from 'express';
 import { watchHistoryController } from '../controllers/watchHistoryController.js';
 import { validate } from '../middleware/validate.js';
 import { authenticate } from '../middleware/auth.js';
-import { watchProgressSchema, idParamSchema } from '@m3u8-preview/shared';
-import { z } from 'zod';
-
-const mediaIdParamSchema = z.object({
-  mediaId: z.string().uuid(),
-});
+import { watchProgressSchema, idParamSchema, mediaIdParamSchema } from '@m3u8-preview/shared';
 
 const router = Router();
 

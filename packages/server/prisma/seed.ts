@@ -6,8 +6,13 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('Seeding database...');
 
-  // Create admin user
-  const passwordHash = await bcrypt.hash('admin123', 12);
+  // Create admin user - 生产环境必须通过环境变量设置密码
+  const adminPassword = process.env.ADMIN_SEED_PASSWORD || (process.env.NODE_ENV === 'production' ? null : 'Admin123');
+  if (!adminPassword) {
+    console.error('FATAL: ADMIN_SEED_PASSWORD required in production');
+    process.exit(1);
+  }
+  const passwordHash = await bcrypt.hash(adminPassword, 12);
   const admin = await prisma.user.upsert({
     where: { username: 'admin' },
     update: {},
@@ -21,8 +26,13 @@ async function main() {
   });
   console.log(`Admin user created: ${admin.username}`);
 
-  // Create demo user
-  const demoHash = await bcrypt.hash('demo123', 12);
+  // Create demo user - 生产环境必须通过环境变量设置密码
+  const demoPassword = process.env.DEMO_SEED_PASSWORD || (process.env.NODE_ENV === 'production' ? null : 'Demo1234');
+  if (!demoPassword) {
+    console.error('FATAL: DEMO_SEED_PASSWORD required in production');
+    process.exit(1);
+  }
+  const demoHash = await bcrypt.hash(demoPassword, 12);
   const demo = await prisma.user.upsert({
     where: { username: 'demo' },
     update: {},

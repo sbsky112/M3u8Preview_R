@@ -11,7 +11,8 @@ const mediaInclude = {
 export const mediaService = {
   async findAll(query: MediaQueryParams): Promise<PaginatedResponse<Media>> {
     const { page = 1, limit = 20, search, categoryId, tagId, status, sortBy = 'createdAt', sortOrder = 'desc' } = query;
-    const skip = (page - 1) * limit;
+    const safeLimit = Math.min(Math.max(1, limit), 100);
+    const skip = (page - 1) * safeLimit;
 
     const where: any = {};
     if (search) {
@@ -32,7 +33,7 @@ export const mediaService = {
         include: mediaInclude,
         orderBy: { [sortBy]: sortOrder },
         skip,
-        take: limit,
+        take: safeLimit,
       }),
       prisma.media.count({ where }),
     ]);
@@ -41,8 +42,8 @@ export const mediaService = {
       items: items.map(serializeMedia),
       total,
       page,
-      limit,
-      totalPages: Math.ceil(total / limit),
+      limit: safeLimit,
+      totalPages: Math.ceil(total / safeLimit),
     };
   },
 
@@ -115,10 +116,11 @@ export const mediaService = {
   },
 
   async getRandom(count: number = 10): Promise<Media[]> {
+    const safeCount = Math.min(Math.max(1, count), 50);
     // H6: 使用 Prisma raw query 利用 SQLite RANDOM()，避免加载全部 ID 到内存
     const randomIds = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
       `SELECT id FROM Media WHERE status = 'ACTIVE' ORDER BY RANDOM() LIMIT ?`,
-      count,
+      safeCount,
     );
 
     if (randomIds.length === 0) return [];
@@ -131,11 +133,12 @@ export const mediaService = {
   },
 
   async getRecent(count: number = 10): Promise<Media[]> {
+    const safeCount = Math.min(Math.max(1, count), 50);
     const items = await prisma.media.findMany({
       where: { status: 'ACTIVE' },
       include: mediaInclude,
       orderBy: { createdAt: 'desc' },
-      take: count,
+      take: safeCount,
     });
     return items.map(serializeMedia);
   },

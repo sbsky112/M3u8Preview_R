@@ -50,8 +50,21 @@ if (config.nodeEnv !== 'test') {
   app.use(morgan('dev'));
 }
 
-// H5: 使用绝对路径提供静态文件
-app.use('/uploads', express.static(uploadsDir));
+// H5: 使用绝对路径提供静态文件，添加安全头
+app.use('/uploads', (_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  next();
+}, express.static(uploadsDir));
+
+// Global API rate limiter
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/v1', globalLimiter);
 
 // API routes
 app.use('/api/v1/auth', authLimiter, authRoutes);

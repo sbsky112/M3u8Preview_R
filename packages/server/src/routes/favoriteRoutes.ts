@@ -2,11 +2,7 @@ import { Router } from 'express';
 import { favoriteController } from '../controllers/favoriteController.js';
 import { authenticate } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
-import { z } from 'zod';
-
-const mediaIdParamSchema = z.object({
-  mediaId: z.string().uuid(),
-});
+import { mediaIdParamSchema } from '@m3u8-preview/shared';
 
 const router = Router();
 

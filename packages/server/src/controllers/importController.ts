@@ -1,9 +1,8 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response } from 'express';
 import multer from 'multer';
-import { parseText, parseCsv, parseJson, parseExcel } from '../parsers/index.js';
 import { importService } from '../services/importService.js';
 import { AppError } from '../middleware/errorHandler.js';
-import { prisma } from '../lib/prisma.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
 
 // Configure multer for import file uploads (memory storage)
 const storage = multer.memoryStorage();
@@ -23,123 +22,59 @@ const upload = multer({
 
 export const importUpload = upload.single('file');
 
-function detectFormatAndParse(file?: Express.Multer.File, body?: any): { items: any[]; format: string; fileName?: string } {
-  // If file is provided, parse based on file extension
-  if (file) {
-    const ext = file.originalname.split('.').pop()?.toLowerCase();
-    const fileName = file.originalname;
-
-    switch (ext) {
-      case 'csv':
-        return { items: parseCsv(file.buffer.toString('utf-8')), format: 'CSV', fileName };
-      case 'xlsx':
-        return { items: parseExcel(file.buffer), format: 'EXCEL', fileName };
-      case 'json':
-        return { items: parseJson(file.buffer.toString('utf-8')), format: 'JSON', fileName };
-      case 'txt':
-        return { items: parseText(file.buffer.toString('utf-8')), format: 'TEXT', fileName };
-      default:
-        throw new AppError(`Unsupported file format: ${ext}`, 400);
-    }
-  }
-
-  // If no file, parse from body content
-  if (body?.content) {
-    const format = body.format?.toUpperCase() || 'TEXT';
-    switch (format) {
-      case 'TEXT':
-        return { items: parseText(body.content), format: 'TEXT' };
-      case 'CSV':
-        return { items: parseCsv(body.content), format: 'CSV' };
-      case 'JSON':
-        return { items: parseJson(body.content), format: 'JSON' };
-      default:
-        return { items: parseText(body.content), format: 'TEXT' };
-    }
-  }
-
-  throw new AppError('No file or content provided', 400);
-}
-
 export const importController = {
-  async preview(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { items, format, fileName } = detectFormatAndParse(req.file, req.body);
-      const preview = importService.preview(items);
+  preview: asyncHandler(async (req: Request, res: Response) => {
+    const { items, format, fileName } = importService.detectFormatAndParse(req.file, req.body);
+    const preview = importService.preview(items);
 
-      // Attach format and fileName for potential execute call
-      res.json({
-        success: true,
-        data: {
-          ...preview,
-          format,
-          fileName,
-        },
-      });
-    } catch (error) {
-      next(error);
-    }
-  },
-
-  async execute(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { items, format, fileName } = req.body;
-      if (!items || !Array.isArray(items)) {
-        throw new AppError('Items array is required', 400);
-      }
-      // H7: 限制单次导入数据量，防止 DoS
-      if (items.length > 1000) {
-        throw new AppError('Maximum 1000 items per import', 400);
-      }
-
-      const result = await importService.execute(
-        req.user!.userId,
-        items,
-        format || 'TEXT',
+    res.json({
+      success: true,
+      data: {
+        ...preview,
+        format,
         fileName,
-      );
-      res.json({ success: true, data: result });
-    } catch (error) {
-      next(error);
+      },
+    });
+  }),
+
+  execute: asyncHandler(async (req: Request, res: Response) => {
+    const { items, format, fileName } = req.body;
+    if (!items || !Array.isArray(items)) {
+      throw new AppError('Items array is required', 400);
     }
-  },
-
-  async getTemplates(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { format } = req.params;
-
-      if (format === 'csv') {
-        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-        res.setHeader('Content-Disposition', 'attachment; filename="import-template.csv"');
-        // Add BOM for Excel UTF-8 compatibility
-        res.send('\ufeff' + importService.generateCsvTemplate());
-      } else if (format === 'json') {
-        res.setHeader('Content-Type', 'application/json; charset=utf-8');
-        res.setHeader('Content-Disposition', 'attachment; filename="import-template.json"');
-        res.send(importService.generateJsonTemplate());
-      } else {
-        throw new AppError('Unsupported template format. Use csv or json.', 400);
-      }
-    } catch (error) {
-      next(error);
+    // H7: 限制单次导入数据量，防止 DoS
+    if (items.length > 1000) {
+      throw new AppError('Maximum 1000 items per import', 400);
     }
-  },
 
-  async getLogs(req: Request, res: Response, next: NextFunction) {
-    try {
-      const logs = await prisma.importLog.findMany({
-        orderBy: { createdAt: 'desc' },
-        take: 50,
-      });
+    const result = await importService.execute(
+      req.user!.userId,
+      items,
+      format || 'TEXT',
+      fileName,
+    );
+    res.json({ success: true, data: result });
+  }),
 
-      const serialized = logs.map(log => ({
-        ...log,
-        createdAt: log.createdAt instanceof Date ? log.createdAt.toISOString() : log.createdAt,
-      }));
+  getTemplates: asyncHandler(async (req: Request, res: Response) => {
+    const { format } = req.params;
 
-      res.json({ success: true, data: serialized });
-    } catch (error) {
-      next(error);
+    if (format === 'csv') {
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', 'attachment; filename="import-template.csv"');
+      // Add BOM for Excel UTF-8 compatibility
+      res.send('\ufeff' + importService.generateCsvTemplate());
+    } else if (format === 'json') {
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Content-Disposition', 'attachment; filename="import-template.json"');
+      res.send(importService.generateJsonTemplate());
+    } else {
+      throw new AppError('Unsupported template format. Use csv or json.', 400);
     }
-  },
+  }),
+
+  getLogs: asyncHandler(async (_req: Request, res: Response) => {
+    const serialized = await importService.getLogs();
+    res.json({ success: true, data: serialized });
+  }),
 };

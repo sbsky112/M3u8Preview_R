@@ -15,25 +15,16 @@ export const watchHistoryService = {
     progress: number,
     duration: number,
   ): Promise<WatchHistory> {
-    // Verify media exists
-    const media = await prisma.media.findUnique({ where: { id: mediaId } });
-    if (!media) {
-      throw new AppError('Media not found', 404);
-    }
-
     const percentage = duration > 0 ? Math.min((progress / duration) * 100, 100) : 0;
     const completed = percentage >= 90;
 
     // 防回退：新值小于旧值且小于 30 秒 → 判定为初始化回退，跳过更新
     const existing = await prisma.watchHistory.findUnique({
       where: { userId_mediaId: { userId, mediaId } },
+      include: { media: { include: mediaInclude } },
     });
     if (existing && progress < existing.progress && progress < 30) {
-      const full = await prisma.watchHistory.findUnique({
-        where: { userId_mediaId: { userId, mediaId } },
-        include: { media: { include: mediaInclude } },
-      });
-      return serializeHistory(full);
+      return serializeHistory(existing);
     }
 
     const history = await prisma.watchHistory.upsert({
@@ -143,6 +134,7 @@ export const watchHistoryService = {
     const histories = await prisma.watchHistory.findMany({
       where: { userId, progress: { gt: 0 } },
       select: { mediaId: true, percentage: true, completed: true },
+      take: 500,
     });
     const map: Record<string, { percentage: number; completed: boolean }> = {};
     for (const h of histories) {

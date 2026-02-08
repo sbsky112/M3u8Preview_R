@@ -14,7 +14,11 @@ const storage = multer.diskStorage({
     cb(null, uploadsDir);
   },
   filename(_req, file, cb) {
-    const ext = path.extname(file.originalname);
+    const ALLOWED_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp']);
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (!ALLOWED_EXTENSIONS.has(ext)) {
+      return cb(new Error('Invalid file extension'), '');
+    }
     const filename = `${uuidv4()}${ext}`;
     cb(null, filename);
   },

@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Film, Users, FolderOpen, Play, Settings, Download } from 'lucide-react';
 import { adminApi } from '../services/adminApi.js';
+import { MediaThumbnail } from '../components/media/MediaThumbnail.js';
 
 export function AdminDashboardPage() {
   const { data: stats, isLoading } = useQuery({
@@ -84,13 +85,13 @@ export function AdminDashboardPage() {
             {stats.recentMedia.map((media: any) => (
               <Link key={media.id} to={`/media/${media.id}`} className="flex items-center gap-3 text-sm group">
                 <div className="w-16 aspect-video bg-emby-bg-input rounded flex-shrink-0 overflow-hidden">
-                  {media.posterUrl ? (
-                    <img src={media.posterUrl} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Film className="w-4 h-4 text-emby-text-muted" />
-                    </div>
-                  )}
+                  <MediaThumbnail
+                    mediaId={media.id}
+                    m3u8Url={media.m3u8Url}
+                    posterUrl={media.posterUrl}
+                    title={media.title}
+                    iconSize="w-4 h-4"
+                  />
                 </div>
                 <div className="min-w-0">
                   <p className="text-white truncate group-hover:text-emby-green-light">{media.title}</p>
@@ -108,6 +109,15 @@ export function AdminDashboardPage() {
             {stats.topMedia.map((media: any, index: number) => (
               <Link key={media.id} to={`/media/${media.id}`} className="flex items-center gap-3 text-sm group">
                 <span className="text-emby-text-muted font-mono w-6 text-center">{index + 1}</span>
+                <div className="w-16 aspect-video bg-emby-bg-input rounded flex-shrink-0 overflow-hidden">
+                  <MediaThumbnail
+                    mediaId={media.id}
+                    m3u8Url={media.m3u8Url}
+                    posterUrl={media.posterUrl}
+                    title={media.title}
+                    iconSize="w-4 h-4"
+                  />
+                </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-white truncate group-hover:text-emby-green-light">{media.title}</p>
                 </div>

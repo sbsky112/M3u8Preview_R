@@ -8,10 +8,15 @@ dotenvConfig({ path: path.resolve(__dirname, '../.env') });
 
 const nodeEnv = process.env.NODE_ENV || 'development';
 
-// 生产环境强制校验 JWT 密钥配置
+// 生产环境强制校验 JWT 密钥配置（强度 + 非默认值）
 if (nodeEnv === 'production') {
-  if (!process.env.JWT_SECRET || !process.env.JWT_REFRESH_SECRET) {
-    console.error('FATAL: JWT_SECRET and JWT_REFRESH_SECRET must be set in production environment');
+  const weakDefaults = ['change-me-in-production', 'dev-jwt-secret', 'dev-jwt-refresh-secret'];
+  if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32 || weakDefaults.includes(process.env.JWT_SECRET)) {
+    console.error('FATAL: JWT_SECRET must be at least 32 characters and not a known default');
+    process.exit(1);
+  }
+  if (!process.env.JWT_REFRESH_SECRET || process.env.JWT_REFRESH_SECRET.length < 32 || weakDefaults.includes(process.env.JWT_REFRESH_SECRET)) {
+    console.error('FATAL: JWT_REFRESH_SECRET must be at least 32 characters and not a known default');
     process.exit(1);
   }
 }

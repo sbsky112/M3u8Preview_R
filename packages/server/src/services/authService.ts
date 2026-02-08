@@ -4,6 +4,9 @@ import { prisma } from '../lib/prisma.js';
 import { config } from '../config.js';
 import { AppError } from '../middleware/errorHandler.js';
 import type { TokenPayload, AuthResponse, User } from '@m3u8-preview/shared';
+import { UserRole } from '@m3u8-preview/shared';
+
+const REFRESH_TOKEN_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 function generateAccessToken(payload: TokenPayload): string {
   return jwt.sign(payload, config.jwt.secret, { expiresIn: config.jwt.accessExpiresIn } as jwt.SignOptions);
@@ -37,7 +40,7 @@ export const authService = {
       data: { username, email, passwordHash },
     });
 
-    const tokenPayload: TokenPayload = { userId: user.id, role: user.role as any };
+    const tokenPayload: TokenPayload = { userId: user.id, role: user.role as UserRole };
     const accessToken = generateAccessToken(tokenPayload);
     const refreshToken = generateRefreshToken(tokenPayload);
 
@@ -46,7 +49,7 @@ export const authService = {
       data: {
         token: refreshToken,
         userId: user.id,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        expiresAt: new Date(Date.now() + REFRESH_TOKEN_EXPIRY_MS),
       },
     });
 
@@ -72,7 +75,7 @@ export const authService = {
       throw new AppError('用户名或密码错误', 401);
     }
 
-    const tokenPayload: TokenPayload = { userId: user.id, role: user.role as any };
+    const tokenPayload: TokenPayload = { userId: user.id, role: user.role as UserRole };
     const accessToken = generateAccessToken(tokenPayload);
     const refreshToken = generateRefreshToken(tokenPayload);
 
@@ -81,7 +84,7 @@ export const authService = {
       data: {
         token: refreshToken,
         userId: user.id,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        expiresAt: new Date(Date.now() + REFRESH_TOKEN_EXPIRY_MS),
       },
     });
 
@@ -119,7 +122,7 @@ export const authService = {
     // Rotate refresh token
     await prisma.refreshToken.delete({ where: { id: storedToken.id } });
 
-    const newPayload: TokenPayload = { userId: user.id, role: user.role as any };
+    const newPayload: TokenPayload = { userId: user.id, role: user.role as UserRole };
     const accessToken = generateAccessToken(newPayload);
     const newRefreshToken = generateRefreshToken(newPayload);
 
@@ -127,7 +130,7 @@ export const authService = {
       data: {
         token: newRefreshToken,
         userId: user.id,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        expiresAt: new Date(Date.now() + REFRESH_TOKEN_EXPIRY_MS),
       },
     });
 

@@ -3,7 +3,10 @@ import { z } from 'zod';
 // ========== Auth Validation ==========
 export const loginSchema = z.object({
   username: z.string().min(3, '用户名至少3个字符').max(50),
-  password: z.string().min(6, '密码至少6个字符').max(100),
+  password: z.string()
+    .min(8, '密码至少8个字符')
+    .max(100)
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/, '密码须包含大写字母、小写字母和数字'),
 });
 
 export const registerSchema = z.object({
@@ -13,7 +16,10 @@ export const registerSchema = z.object({
     .max(50)
     .regex(/^[a-zA-Z0-9_]+$/, '用户名只能包含字母、数字和下划线'),
   email: z.string().email('请输入有效的邮箱地址'),
-  password: z.string().min(6, '密码至少6个字符').max(100),
+  password: z.string()
+    .min(8, '密码至少8个字符')
+    .max(100)
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/, '密码须包含大写字母、小写字母和数字'),
 });
 
 // ========== Media Validation ==========
@@ -99,4 +105,34 @@ export const systemSettingSchema = z.object({
 // ========== ID Param ==========
 export const idParamSchema = z.object({
   id: z.string().uuid(),
+});
+
+// ========== Common Param/Body Schemas ==========
+export const mediaIdParamSchema = z.object({
+  mediaId: z.string().uuid(),
+});
+
+export const paginationSchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+export const updateUserSchema = z.object({
+  role: z.enum(['USER', 'ADMIN']).optional(),
+  isActive: z.boolean().optional(),
+}).refine(data => data.role !== undefined || data.isActive !== undefined, {
+  message: 'At least one of role or isActive must be provided',
+});
+
+export const updateSettingSchema = z.object({
+  key: z.string().min(1).max(100),
+  value: z.string(),
+});
+
+export const addItemBodySchema = z.object({
+  mediaId: z.string().uuid(),
+});
+
+export const reorderBodySchema = z.object({
+  itemIds: z.array(z.string().uuid()).min(1),
 });

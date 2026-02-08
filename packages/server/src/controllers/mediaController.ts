@@ -60,7 +60,7 @@ export const mediaController = {
 
   async getRandom(req: Request, res: Response, next: NextFunction) {
     try {
-      const count = parseInt(req.query.count as string) || 10;
+      const count = Math.min(parseInt(req.query.count as string) || 10, 50);
       const items = await mediaService.getRandom(count);
       res.json({ success: true, data: items });
     } catch (error) {
@@ -70,7 +70,7 @@ export const mediaController = {
 
   async getRecent(req: Request, res: Response, next: NextFunction) {
     try {
-      const count = parseInt(req.query.count as string) || 10;
+      const count = Math.min(parseInt(req.query.count as string) || 10, 50);
       const items = await mediaService.getRecent(count);
       res.json({ success: true, data: items });
     } catch (error) {

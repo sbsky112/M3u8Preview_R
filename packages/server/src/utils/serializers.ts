@@ -6,6 +6,7 @@ import type { Media, Favorite, WatchHistory } from '@m3u8-preview/shared';
 
 /** 序列化日期字段：Date -> ISO string */
 function toISO(value: unknown): string {
+  if (value == null) return '';
   if (value instanceof Date) return value.toISOString();
   return value as string;
 }

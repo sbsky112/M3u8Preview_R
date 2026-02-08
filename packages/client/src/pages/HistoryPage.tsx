@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Film, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { historyApi } from '../services/historyApi.js';
+import { MediaThumbnail } from '../components/media/MediaThumbnail.js';
 import { formatDuration } from '../lib/utils.js';
 import type { WatchHistory } from '@m3u8-preview/shared';
 
@@ -68,13 +69,13 @@ export function HistoryPage() {
             <div key={item.id} className="flex gap-4 p-3 border-b border-emby-border-subtle/50 hover:bg-white/5 transition-colors group">
               <Link to={`/media/${item.mediaId}`} className="w-48 flex-shrink-0">
                 <div className="aspect-video bg-emby-bg-input rounded-md overflow-hidden relative">
-                  {item.media?.posterUrl ? (
-                    <img src={item.media.posterUrl} alt={item.media?.title} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Film className="w-8 h-8 text-emby-text-muted" />
-                    </div>
-                  )}
+                  <MediaThumbnail
+                    mediaId={item.mediaId}
+                    m3u8Url={item.media?.m3u8Url || ''}
+                    posterUrl={item.media?.posterUrl}
+                    title={item.media?.title}
+                    watchedPercentage={item.percentage}
+                  />
                   {/* Progress bar */}
                   <div className="absolute bottom-0 left-0 right-0 h-1 bg-emby-border">
                     <div

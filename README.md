@@ -98,6 +98,81 @@ npm run dev
 npm run build
 ```
 
+## Docker 部署
+
+### 快速启动（生产环境）
+
+```bash
+# 设置 JWT 密钥（必须修改！）
+export JWT_SECRET="your-secure-random-secret"
+export JWT_REFRESH_SECRET="your-secure-random-refresh-secret"
+
+# 构建并启动
+docker compose up -d --build
+
+# 查看日志
+docker compose logs -f
+```
+
+访问 http://localhost 即可使用。
+
+### 自定义端口
+
+```bash
+# 使用 8080 端口
+PORT=8080 docker compose up -d --build
+```
+
+### 环境变量
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `JWT_SECRET` | `change-me-in-production` | JWT 签名密钥（**生产环境必须修改**） |
+| `JWT_REFRESH_SECRET` | `change-me-in-production-refresh` | JWT 刷新令牌密钥（**生产环境必须修改**） |
+| `PORT` | `80` | Nginx 对外端口 |
+| `CORS_ORIGIN` | `http://localhost` | 允许的跨域来源 |
+
+### 数据持久化
+
+Docker 使用命名卷存储数据，容器重建后数据不丢失：
+
+| 卷名 | 容器路径 | 说明 |
+|------|----------|------|
+| `db-data` | `/data` | SQLite 数据库文件 |
+| `uploads` | `/app/packages/server/uploads` | 上传的文件 |
+| `client-dist` | `/app/packages/client/dist` | 前端构建产物 |
+
+备份数据库：
+```bash
+docker cp m3u8preview-app:/data/m3u8preview.db ./backup.db
+```
+
+### 常用命令
+
+```bash
+# 停止服务
+docker compose down
+
+# 停止并删除数据卷（⚠️ 会丢失所有数据）
+docker compose down -v
+
+# 重新构建（代码更新后）
+docker compose up -d --build
+
+# 查看服务状态
+docker compose ps
+```
+
+### 开发环境（Docker）
+
+```bash
+docker compose -f docker-compose.dev.yml up --build
+```
+
+- 前端：http://localhost:5173
+- 后端：http://localhost:3000
+- 源码变更自动热重载
+
 ### 数据库管理
 
 ```bash
