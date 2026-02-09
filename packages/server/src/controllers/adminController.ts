@@ -86,4 +86,31 @@ export const adminController = {
     const count = await generateAllMissing();
     res.json({ success: true, data: { enqueuedCount: count } });
   }),
+
+  /**
+   * POST /admin/media/batch-delete - 批量删除媒体
+   */
+  batchDeleteMedia: asyncHandler(async (req: Request, res: Response) => {
+    const { ids } = req.body;
+    const result = await adminService.batchDeleteMedia(ids);
+    res.json({ success: true, data: result });
+  }),
+
+  /**
+   * PUT /admin/media/batch-status - 批量修改媒体状态
+   */
+  batchUpdateStatus: asyncHandler(async (req: Request, res: Response) => {
+    const { ids, status } = req.body;
+    const result = await adminService.batchUpdateStatus(ids, status);
+    res.json({ success: true, data: result });
+  }),
+
+  /**
+   * PUT /admin/media/batch-category - 批量修改媒体分类
+   */
+  batchUpdateCategory: asyncHandler(async (req: Request, res: Response) => {
+    const { ids, categoryId } = req.body;
+    const result = await adminService.batchUpdateCategory(ids, categoryId);
+    res.json({ success: true, data: result });
+  }),
 };

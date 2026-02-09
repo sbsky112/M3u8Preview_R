@@ -1,7 +1,8 @@
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../middleware/errorHandler.js';
-import type { DashboardStats, PaginatedResponse, UserWithStats, Media } from '@m3u8-preview/shared';
+import type { DashboardStats, PaginatedResponse, UserWithStats, Media, BatchOperationResult } from '@m3u8-preview/shared';
 import { serializeMedia } from '../utils/serializers.js';
+import { deleteThumbnail } from './thumbnailService.js';
 
 export const adminService = {
   /**
@@ -202,5 +203,70 @@ export const adminService = {
       limit,
       totalPages: Math.ceil(total / limit),
     };
+  },
+
+  /**
+   * 批量删除媒体
+   */
+  async batchDeleteMedia(ids: string[]): Promise<BatchOperationResult> {
+    // 先查询要删除的媒体，用于后续清理缩略图
+    const mediaList = await prisma.media.findMany({
+      where: { id: { in: ids } },
+      select: { id: true },
+    });
+
+    const result = await prisma.media.deleteMany({
+      where: { id: { in: ids } },
+    });
+
+    if (result.count === 0) {
+      throw new AppError('未找到匹配记录', 404);
+    }
+
+    // 异步清理缩略图，静默失败
+    for (const media of mediaList) {
+      deleteThumbnail(media.id).catch(() => {});
+    }
+
+    return { affectedCount: result.count };
+  },
+
+  /**
+   * 批量修改媒体状态
+   */
+  async batchUpdateStatus(ids: string[], status: 'ACTIVE' | 'INACTIVE'): Promise<BatchOperationResult> {
+    const result = await prisma.media.updateMany({
+      where: { id: { in: ids } },
+      data: { status },
+    });
+
+    if (result.count === 0) {
+      throw new AppError('未找到匹配记录', 404);
+    }
+
+    return { affectedCount: result.count };
+  },
+
+  /**
+   * 批量修改媒体分类
+   */
+  async batchUpdateCategory(ids: string[], categoryId: string | null): Promise<BatchOperationResult> {
+    if (categoryId !== null) {
+      const category = await prisma.category.findUnique({ where: { id: categoryId } });
+      if (!category) {
+        throw new AppError('分类不存在', 404);
+      }
+    }
+
+    const result = await prisma.media.updateMany({
+      where: { id: { in: ids } },
+      data: { categoryId },
+    });
+
+    if (result.count === 0) {
+      throw new AppError('未找到匹配记录', 404);
+    }
+
+    return { affectedCount: result.count };
   },
 };

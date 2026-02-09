@@ -1,5 +1,5 @@
 import api from './api.js';
-import type { ApiResponse, DashboardStats, PaginatedResponse, RestoreResult } from '@m3u8-preview/shared';
+import type { ApiResponse, DashboardStats, PaginatedResponse, RestoreResult, BatchOperationResult } from '@m3u8-preview/shared';
 
 export const adminApi = {
   async getDashboard() {
@@ -61,6 +61,21 @@ export const adminApi = {
     const { data } = await api.post<ApiResponse<RestoreResult>>('/admin/backup/import', formData, {
       timeout: 300000,
     });
+    return data.data!;
+  },
+
+  async batchDeleteMedia(ids: string[]): Promise<BatchOperationResult> {
+    const { data } = await api.post<ApiResponse<BatchOperationResult>>('/admin/media/batch-delete', { ids });
+    return data.data!;
+  },
+
+  async batchUpdateMediaStatus(ids: string[], status: 'ACTIVE' | 'INACTIVE'): Promise<BatchOperationResult> {
+    const { data } = await api.put<ApiResponse<BatchOperationResult>>('/admin/media/batch-status', { ids, status });
+    return data.data!;
+  },
+
+  async batchUpdateMediaCategory(ids: string[], categoryId: string | null): Promise<BatchOperationResult> {
+    const { data } = await api.put<ApiResponse<BatchOperationResult>>('/admin/media/batch-category', { ids, categoryId });
     return data.data!;
   },
 };

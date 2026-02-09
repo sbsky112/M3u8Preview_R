@@ -180,6 +180,18 @@ docker compose -f docker-compose.dev.yml up --build
 npm run db:studio
 ```
 
+## API 限流
+
+服务端使用 `express-rate-limit` 对 API 请求进行速率限制，防止滥用：
+
+| 限流层级 | 作用范围 | 窗口时间 | 最大请求数 | 说明 |
+|----------|----------|----------|------------|------|
+| 认证路由 | `/api/v1/auth/*` | 15 分钟 | 50 次 | 登录、注册、刷新 token 等共享配额 |
+| 全局 API | `/api/v1/*` | 15 分钟 | 200 次 | 所有 API 路由 |
+| 播放量统计 | `POST /api/v1/media/:id/views` | 15 分钟 | 100 次 | 防止刷播放量 |
+
+超出限制后会返回 `429 Too Many Requests`，等待窗口期重置即可。
+
 ## 功能特性
 
 - **M3U8 流媒体播放** — 基于 hls.js，支持多画质切换、键盘快捷键、进度记忆

@@ -285,3 +285,8 @@ export interface RestoreResult {
   uploadsRestored: number;
   duration: number;
 }
+
+// ========== Batch Operations ==========
+export interface BatchOperationResult {
+  affectedCount: number;
+}

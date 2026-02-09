@@ -133,3 +133,16 @@ export const addItemBodySchema = z.object({
 export const reorderBodySchema = z.object({
   itemIds: z.array(z.string().uuid()).min(1),
 });
+
+// ========== Batch Operations ==========
+export const batchDeleteSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1, '至少选择一项').max(500, '单次最多操作500项'),
+});
+export const batchStatusSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1, '至少选择一项').max(500, '单次最多操作500项'),
+  status: z.enum(['ACTIVE', 'INACTIVE']),
+});
+export const batchCategorySchema = z.object({
+  ids: z.array(z.string().uuid()).min(1, '至少选择一项').max(500, '单次最多操作500项'),
+  categoryId: z.string().uuid().nullable(),
+});

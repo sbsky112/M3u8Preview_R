@@ -3,7 +3,7 @@ import { adminController } from '../controllers/adminController.js';
 import { backupController, backupUpload } from '../controllers/backupController.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
-import { idParamSchema, updateUserSchema, updateSettingSchema } from '@m3u8-preview/shared';
+import { idParamSchema, updateUserSchema, updateSettingSchema, batchDeleteSchema, batchStatusSchema, batchCategorySchema } from '@m3u8-preview/shared';
 
 const router = Router();
 
@@ -24,6 +24,9 @@ router.put('/settings', validate(updateSettingSchema), adminController.updateSet
 
 // Media management (admin view with additional filters)
 router.get('/media', adminController.getMedia);
+router.post('/media/batch-delete', validate(batchDeleteSchema), adminController.batchDeleteMedia);
+router.put('/media/batch-status', validate(batchStatusSchema), adminController.batchUpdateStatus);
+router.put('/media/batch-category', validate(batchCategorySchema), adminController.batchUpdateCategory);
 
 // Thumbnail management
 router.post('/thumbnails/generate', adminController.generateThumbnails);
