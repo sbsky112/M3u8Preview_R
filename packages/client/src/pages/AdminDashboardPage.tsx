@@ -1,14 +1,38 @@
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Film, Users, FolderOpen, Play, Settings, Download } from 'lucide-react';
+import { Film, Users, FolderOpen, Play, Settings, Download, Shield } from 'lucide-react';
 import { adminApi } from '../services/adminApi.js';
 import { MediaThumbnail } from '../components/media/MediaThumbnail.js';
 
 export function AdminDashboardPage() {
+  const queryClient = useQueryClient();
+
   const { data: stats, isLoading } = useQuery({
     queryKey: ['admin', 'dashboard'],
     queryFn: () => adminApi.getDashboard(),
   });
+
+  const { data: settings } = useQuery({
+    queryKey: ['admin', 'settings'],
+    queryFn: () => adminApi.getSettings(),
+  });
+
+  const updateSettingMutation = useMutation({
+    mutationFn: ({ key, value }: { key: string; value: string }) =>
+      adminApi.updateSetting(key, value),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'settings'] });
+    },
+    onError: () => {
+      setSettingError('设置更新失败，请重试');
+      setTimeout(() => setSettingError(''), 3000);
+    },
+  });
+
+  const [settingError, setSettingError] = useState('');
+  const settingsLoaded = !!settings;
+  const allowRegistration = settings?.find((s) => s.key === 'allowRegistration')?.value !== 'false';
 
   if (isLoading) {
     return (
@@ -75,6 +99,44 @@ export function AdminDashboardPage() {
           </div>
           <p className="text-emby-text-muted text-sm mt-1">导入M3U8链接</p>
         </Link>
+      </div>
+
+      {/* System Settings */}
+      <div className="bg-emby-bg-card border border-emby-border-subtle rounded-md p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Shield className="w-5 h-5 text-emby-text-secondary" />
+          <h3 className="text-white font-semibold">系统设置</h3>
+        </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-white text-sm">允许新用户注册</p>
+            <p className="text-emby-text-muted text-xs mt-0.5">关闭后新用户将无法注册账号</p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={allowRegistration}
+            disabled={updateSettingMutation.isPending || !settingsLoaded}
+            onClick={() =>
+              updateSettingMutation.mutate({
+                key: 'allowRegistration',
+                value: allowRegistration ? 'false' : 'true',
+              })
+            }
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emby-green focus:ring-offset-2 focus:ring-offset-emby-bg-card disabled:opacity-50 ${
+              allowRegistration ? 'bg-emby-green' : 'bg-emby-bg-input'
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                allowRegistration ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </div>
+        {settingError && (
+          <p className="text-red-400 text-xs mt-2">{settingError}</p>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

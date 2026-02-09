@@ -45,4 +45,13 @@ export const authApi = {
     const { data } = await api.get<ApiResponse<User>>('/auth/me');
     return data.data!;
   },
+
+  /** 查询注册是否开放（公开接口，使用 axios 避免 401 拦截器干扰） */
+  async getRegisterStatus() {
+    const { data } = await axios.get<ApiResponse<{ allowRegistration: boolean }>>(
+      '/api/v1/auth/register-status',
+      { timeout: 10000 },
+    );
+    return data.data!;
+  },
 };

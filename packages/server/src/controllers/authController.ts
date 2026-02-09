@@ -80,6 +80,15 @@ export const authController = {
     }
   },
 
+  async getRegisterStatus(req: Request, res: Response, next: NextFunction) {
+    try {
+      const allowRegistration = await authService.getRegisterStatus();
+      res.json({ success: true, data: { allowRegistration } });
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async me(req: Request, res: Response, next: NextFunction) {
     try {
       const user = await authService.getProfile(req.user!.userId);

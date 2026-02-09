@@ -1,17 +1,23 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation, Navigate } from 'react-router-dom';
 import { Clapperboard } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore.js';
+import { authApi } from '../../services/authApi.js';
 
 export function LoginForm() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [allowRegistration, setAllowRegistration] = useState<boolean | null>(null);
   const login = useAuthStore((s) => s.login);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    authApi.getRegisterStatus().then((res) => setAllowRegistration(res.allowRegistration)).catch(() => {});
+  }, []);
 
   // 登录后重定向到来源页，过滤登录/注册页防止循环
   const rawFrom = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
@@ -83,12 +89,14 @@ export function LoginForm() {
             {loading ? '登录中...' : '登录'}
           </button>
 
-          <p className="text-center text-sm text-emby-text-secondary">
-            还没有账号？{' '}
-            <Link to="/register" className="text-emby-green-light hover:text-emby-green-hover">
-              注册
-            </Link>
-          </p>
+          {allowRegistration && (
+            <p className="text-center text-sm text-emby-text-secondary">
+              还没有账号？{' '}
+              <Link to="/register" className="text-emby-green-light hover:text-emby-green-hover">
+                注册
+              </Link>
+            </p>
+          )}
         </form>
       </div>
     </div>

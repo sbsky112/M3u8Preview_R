@@ -152,6 +152,12 @@ export const authService = {
     await prisma.refreshToken.deleteMany({ where: { token: hashToken(token) } });
   },
 
+  async getRegisterStatus(): Promise<boolean> {
+    const setting = await prisma.systemSetting.findUnique({ where: { key: 'allowRegistration' } });
+    // 默认允许注册（未设置时）
+    return !setting || setting.value !== 'false';
+  },
+
   async getProfile(userId: string): Promise<User> {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
