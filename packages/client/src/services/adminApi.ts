@@ -1,5 +1,5 @@
 import api from './api.js';
-import type { ApiResponse, DashboardStats, PaginatedResponse } from '@m3u8-preview/shared';
+import type { ApiResponse, DashboardStats, PaginatedResponse, RestoreResult } from '@m3u8-preview/shared';
 
 export const adminApi = {
   async getDashboard() {
@@ -30,5 +30,37 @@ export const adminApi = {
 
   async updateSetting(key: string, value: string) {
     await api.put('/admin/settings', { key, value });
+  },
+
+  async exportBackup() {
+    const response = await api.get('/admin/backup/export', {
+      responseType: 'blob',
+      timeout: 300000,
+    });
+    const blob = response.data as Blob;
+
+    // 从 Content-Disposition 提取文件名
+    const disposition = response.headers['content-disposition'];
+    const match = disposition?.match(/filename="?([^";\n]+)"?/);
+    const filename = match?.[1] || `backup-${new Date().toISOString().slice(0, 19)}.zip`;
+
+    // 创建临时 <a> 标签触发下载
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
+
+  async importBackup(file: File): Promise<RestoreResult> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const { data } = await api.post<ApiResponse<RestoreResult>>('/admin/backup/import', formData, {
+      timeout: 300000,
+    });
+    return data.data!;
   },
 };

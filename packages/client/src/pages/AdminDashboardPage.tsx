@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Film, Users, FolderOpen, Play, Settings, Download, Shield } from 'lucide-react';
 import { adminApi } from '../services/adminApi.js';
 import { MediaThumbnail } from '../components/media/MediaThumbnail.js';
+import { BackupSection } from '../components/admin/BackupSection.js';
 
 export function AdminDashboardPage() {
   const queryClient = useQueryClient();
@@ -138,6 +139,9 @@ export function AdminDashboardPage() {
           <p className="text-red-400 text-xs mt-2">{settingError}</p>
         )}
       </div>
+
+      {/* Backup */}
+      <BackupSection />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Media */}

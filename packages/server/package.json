@@ -14,8 +14,12 @@
     "db:generate": "prisma generate"
   },
   "dependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@ffprobe-installer/ffprobe": "^2.1.0",
     "@m3u8-preview/shared": "*",
     "@prisma/client": "^6.2.0",
+    "adm-zip": "^0.5.16",
+    "archiver": "^7.0.1",
     "bcryptjs": "^2.4.3",
     "compression": "^1.8.1",
     "cookie-parser": "^1.4.7",
@@ -30,11 +34,11 @@
     "papaparse": "^5.4.0",
     "uuid": "^11.0.0",
     "xlsx": "^0.18.5",
-    "zod": "^3.24.0",
-    "@ffmpeg-installer/ffmpeg": "^1.1.0",
-    "@ffprobe-installer/ffprobe": "^2.1.0"
+    "zod": "^3.24.0"
   },
   "devDependencies": {
+    "@types/adm-zip": "^0.5.7",
+    "@types/archiver": "^7.0.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/compression": "^1.8.1",
     "@types/cookie-parser": "^1.4.7",

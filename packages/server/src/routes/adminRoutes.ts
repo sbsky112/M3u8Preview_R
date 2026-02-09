@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { adminController } from '../controllers/adminController.js';
+import { backupController, backupUpload } from '../controllers/backupController.js';
 import { authenticate, requireRole } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import { idParamSchema, updateUserSchema, updateSettingSchema } from '@m3u8-preview/shared';
@@ -26,5 +27,9 @@ router.get('/media', adminController.getMedia);
 
 // Thumbnail management
 router.post('/thumbnails/generate', adminController.generateThumbnails);
+
+// Backup management
+router.get('/backup/export', backupController.exportBackup);
+router.post('/backup/import', backupUpload, backupController.importBackup);
 
 export default router;

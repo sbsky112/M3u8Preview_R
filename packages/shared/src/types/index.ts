@@ -277,3 +277,11 @@ export interface DashboardStats {
   recentMedia: Media[];
   topMedia: Media[];
 }
+
+// ========== Backup ==========
+export interface RestoreResult {
+  tablesRestored: number;
+  totalRecords: number;
+  uploadsRestored: number;
+  duration: number;
+}

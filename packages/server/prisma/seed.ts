@@ -87,72 +87,76 @@ async function main() {
   ]);
   console.log(`${tags.length} tags created`);
 
-  // Create test media with public HLS test streams
-  const testMedia = [
-    {
-      title: 'Big Buck Bunny',
-      m3u8Url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
-      description: 'Big Buck Bunny - 开源动画短片，讲述了一只大兔子的冒险故事。常用于流媒体测试。',
-      year: 2008,
-      rating: 7.5,
-      categoryId: categories[0].id,
-      tagNames: ['动作', '喜剧'],
-    },
-    {
-      title: 'Sintel',
-      m3u8Url: 'https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8',
-      description: 'Sintel - Blender基金会制作的开源动画短片，讲述了一位年轻女孩寻找宠物龙的故事。',
-      year: 2010,
-      rating: 8.0,
-      categoryId: categories[0].id,
-      tagNames: ['动作', '科幻'],
-    },
-    {
-      title: 'Tears of Steel',
-      m3u8Url: 'https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8',
-      description: 'Tears of Steel - Blender基金会制作的开源科幻短片。',
-      year: 2012,
-      rating: 6.5,
-      categoryId: categories[0].id,
-      tagNames: ['科幻'],
-    },
-    {
-      title: 'HLS Test Stream 1',
-      m3u8Url: 'https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8',
-      description: '用于测试的HLS直播流。',
-      categoryId: categories[4].id,
-      tagNames: ['高清'],
-    },
-    {
-      title: 'Elephant Dream',
-      m3u8Url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
-      description: 'Elephant Dream - 世界上第一部使用开源工具制作的动画短片。',
-      year: 2006,
-      rating: 6.0,
-      categoryId: categories[2].id,
-      tagNames: ['科幻', '动作'],
-    },
-  ];
+  // 仅在非生产环境创建测试媒体
+  if (process.env.NODE_ENV !== 'production') {
+    const testMedia = [
+      {
+        title: 'Big Buck Bunny',
+        m3u8Url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+        description: 'Big Buck Bunny - 开源动画短片，讲述了一只大兔子的冒险故事。常用于流媒体测试。',
+        year: 2008,
+        rating: 7.5,
+        categoryId: categories[0].id,
+        tagNames: ['动作', '喜剧'],
+      },
+      {
+        title: 'Sintel',
+        m3u8Url: 'https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8',
+        description: 'Sintel - Blender基金会制作的开源动画短片，讲述了一位年轻女孩寻找宠物龙的故事。',
+        year: 2010,
+        rating: 8.0,
+        categoryId: categories[0].id,
+        tagNames: ['动作', '科幻'],
+      },
+      {
+        title: 'Tears of Steel',
+        m3u8Url: 'https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8',
+        description: 'Tears of Steel - Blender基金会制作的开源科幻短片。',
+        year: 2012,
+        rating: 6.5,
+        categoryId: categories[0].id,
+        tagNames: ['科幻'],
+      },
+      {
+        title: 'HLS Test Stream 1',
+        m3u8Url: 'https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8',
+        description: '用于测试的HLS直播流。',
+        categoryId: categories[4].id,
+        tagNames: ['高清'],
+      },
+      {
+        title: 'Elephant Dream',
+        m3u8Url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+        description: 'Elephant Dream - 世界上第一部使用开源工具制作的动画短片。',
+        year: 2006,
+        rating: 6.0,
+        categoryId: categories[2].id,
+        tagNames: ['科幻', '动作'],
+      },
+    ];
 
-  for (const item of testMedia) {
-    const { tagNames, ...mediaData } = item;
-    const media = await prisma.media.create({
-      data: mediaData,
-    });
+    for (const item of testMedia) {
+      const { tagNames, ...mediaData } = item;
+      const media = await prisma.media.create({
+        data: mediaData,
+      });
 
-    // Link tags
-    if (tagNames && tagNames.length > 0) {
-      const tagRecords = tags.filter(t => tagNames.includes(t.name));
-      await Promise.all(
-        tagRecords.map(tag =>
-          prisma.mediaTag.create({
-            data: { mediaId: media.id, tagId: tag.id },
-          })
-        )
-      );
+      // Link tags
+      if (tagNames && tagNames.length > 0) {
+        const tagRecords = tags.filter(t => tagNames.includes(t.name));
+        await Promise.all(
+          tagRecords.map(tag =>
+            prisma.mediaTag.create({
+              data: { mediaId: media.id, tagId: tag.id },
+            })
+          )
+        );
+      }
     }
+    console.log(`${testMedia.length} test media created`);
+  } else {
+    console.log('Production mode: skipping test media creation');
   }
-  console.log(`${testMedia.length} test media created`);
 
   // Create system settings
   await prisma.systemSetting.upsert({
