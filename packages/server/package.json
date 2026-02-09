@@ -14,8 +14,6 @@
     "db:generate": "prisma generate"
   },
   "dependencies": {
-    "@ffmpeg-installer/ffmpeg": "^1.1.0",
-    "@ffprobe-installer/ffprobe": "^2.1.0",
     "@m3u8-preview/shared": "*",
     "@prisma/client": "^6.2.0",
     "adm-zip": "^0.5.16",
@@ -37,6 +35,8 @@
     "zod": "^3.24.0"
   },
   "devDependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@ffprobe-installer/ffprobe": "^2.1.0",
     "@types/adm-zip": "^0.5.7",
     "@types/archiver": "^7.0.0",
     "@types/bcryptjs": "^2.4.6",

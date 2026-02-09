@@ -21,65 +21,41 @@ let ffprobePath = 'ffprobe';
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
 /**
- * 尝试从 npm 包获取 ffmpeg/ffprobe 二进制路径，失败则回退到系统 PATH
- */
-function resolveBinaryPaths() {
-  const require = createRequire(import.meta.url);
-
-  // @ffmpeg-installer/ffmpeg
-  try {
-    const { path: fPath } = require('@ffmpeg-installer/ffmpeg');
-    if (fPath && typeof fPath === 'string') {
-      ffmpegPath = fPath;
-      console.log('[Thumbnail] Using @ffmpeg-installer/ffmpeg:', ffmpegPath);
-    }
-  } catch {
-    console.log('[Thumbnail] @ffmpeg-installer/ffmpeg not available, using system ffmpeg');
-  }
-
-  // @ffprobe-installer/ffprobe
-  try {
-    const { path: probePath } = require('@ffprobe-installer/ffprobe');
-    if (probePath && typeof probePath === 'string') {
-      ffprobePath = probePath;
-      console.log('[Thumbnail] Using @ffprobe-installer/ffprobe:', ffprobePath);
-    }
-  } catch {
-    console.log('[Thumbnail] @ffprobe-installer/ffprobe not available, using system ffprobe');
-  }
-}
-
-/**
  * 启动时检测 ffmpeg 是否可用
+ * 优先尝试 npm 包（开发环境），失败则回退到系统 PATH（Docker 生产环境）
  */
 export async function checkFfmpeg(): Promise<boolean> {
-  resolveBinaryPaths();
+  // 1. 尝试 npm 包（开发环境有效，生产环境已移至 devDeps 不会安装）
   try {
-    await execFile(ffmpegPath, ['-version'], { timeout: 5000 });
-    await execFile(ffprobePath, ['-version'], { timeout: 5000 });
+    const require = createRequire(import.meta.url);
+    const { path: fPath } = require('@ffmpeg-installer/ffmpeg');
+    const { path: probePath } = require('@ffprobe-installer/ffprobe');
+    await execFile(fPath, ['-version'], { timeout: 5000 });
+    await execFile(probePath, ['-version'], { timeout: 5000 });
+    ffmpegPath = fPath;
+    ffprobePath = probePath;
     ffmpegAvailable = true;
-    console.log('[Thumbnail] ffmpeg/ffprobe detected, thumbnail generation enabled');
+    console.log('[Thumbnail] Using npm ffmpeg:', ffmpegPath);
+    console.log('[Thumbnail] Using npm ffprobe:', ffprobePath);
+    return true;
   } catch {
-    // npm 包的二进制可能不兼容（如 Alpine musl），回退到系统 PATH
-    if (ffmpegPath !== 'ffmpeg' || ffprobePath !== 'ffprobe') {
-      console.warn('[Thumbnail] npm ffmpeg binary failed, trying system PATH...');
-      ffmpegPath = 'ffmpeg';
-      ffprobePath = 'ffprobe';
-      try {
-        await execFile(ffmpegPath, ['-version'], { timeout: 5000 });
-        await execFile(ffprobePath, ['-version'], { timeout: 5000 });
-        ffmpegAvailable = true;
-        console.log('[Thumbnail] Using system ffmpeg/ffprobe, thumbnail generation enabled');
-      } catch {
-        ffmpegAvailable = false;
-        console.warn('[Thumbnail] ffmpeg/ffprobe not found, thumbnail generation disabled');
-      }
-    } else {
-      ffmpegAvailable = false;
-      console.warn('[Thumbnail] ffmpeg/ffprobe not found, thumbnail generation disabled');
-    }
+    // npm 包不可用（未安装或二进制不兼容），继续尝试系统 PATH
   }
-  return ffmpegAvailable;
+
+  // 2. 尝试系统 PATH
+  try {
+    await execFile('ffmpeg', ['-version'], { timeout: 5000 });
+    await execFile('ffprobe', ['-version'], { timeout: 5000 });
+    ffmpegPath = 'ffmpeg';
+    ffprobePath = 'ffprobe';
+    ffmpegAvailable = true;
+    console.log('[Thumbnail] Using system ffmpeg/ffprobe, thumbnail generation enabled');
+    return true;
+  } catch {
+    ffmpegAvailable = false;
+    console.warn('[Thumbnail] ffmpeg/ffprobe not found, thumbnail generation disabled');
+    return false;
+  }
 }
 
 /**

@@ -35,7 +35,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 # Install ffmpeg and su-exec (for entrypoint privilege drop)
-RUN apk add --no-cache ffmpeg su-exec
+RUN apk add --no-cache ffmpeg su-exec curl
 
 # Create non-root user
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
@@ -68,8 +68,8 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 EXPOSE 3000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+  CMD curl -sf http://127.0.0.1:3000/api/health > /dev/null || exit 1
 
 # Entrypoint fixes volume permissions then drops to appuser
 ENTRYPOINT ["docker-entrypoint.sh"]
