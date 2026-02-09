@@ -213,7 +213,8 @@ export function AdminMediaPage() {
                           deleteMutation.mutate(media.id);
                         }
                       }}
-                      className="text-red-400 hover:text-red-300 text-xs"
+                      disabled={deleteMutation.isPending}
+                      className="text-red-400 hover:text-red-300 text-xs disabled:opacity-50"
                     >
                       删除
                     </button>

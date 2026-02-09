@@ -1,6 +1,7 @@
 import app from './app.js';
 import { config } from './config.js';
 import { prisma } from './lib/prisma.js';
+import { checkFfmpeg } from './services/thumbnailService.js';
 import type { Server } from 'http';
 
 let server: Server;
@@ -9,6 +10,9 @@ async function main() {
   // Test database connection
   await prisma.$connect();
   console.log('Database connected');
+
+  // Check ffmpeg availability for thumbnail generation
+  await checkFfmpeg();
 
   server = app.listen(config.port, () => {
     console.log(`Server running on http://localhost:${config.port}`);

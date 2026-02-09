@@ -24,4 +24,7 @@ router.put('/settings', validate(updateSettingSchema), adminController.updateSet
 // Media management (admin view with additional filters)
 router.get('/media', adminController.getMedia);
 
+// Thumbnail management
+router.post('/thumbnails/generate', adminController.generateThumbnails);
+
 export default router;

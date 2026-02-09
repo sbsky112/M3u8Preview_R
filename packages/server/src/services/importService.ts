@@ -3,6 +3,7 @@ import { importItemSchema } from '@m3u8-preview/shared';
 import type { ImportItem, ImportPreviewResponse, ImportResult, ImportError } from '@m3u8-preview/shared';
 import { AppError } from '../middleware/errorHandler.js';
 import { parseText, parseCsv, parseJson, parseExcel } from '../parsers/index.js';
+import { thumbnailQueue } from './thumbnailService.js';
 
 export const importService = {
   /**
@@ -77,6 +78,7 @@ export const importService = {
   async execute(userId: string, items: ImportItem[], format: string, fileName?: string): Promise<ImportResult> {
     const errors: ImportError[] = [];
     let successCount = 0;
+    const createdMediaForThumbnails: Array<{ mediaId: string; m3u8Url: string }> = [];
 
     // 预校验所有条目
     const validItems: { index: number; item: ImportItem }[] = [];
@@ -104,11 +106,15 @@ export const importService = {
         // 批量 upsert 分类，构建 name→id Map
         const categoryMap = new Map<string, string>();
         for (const name of uniqueCategoryNames) {
-          const slug = name
+          let slug = name
             .toLowerCase()
             .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-|-$/g, '')
-            || 'uncategorized';
+            .replace(/^-|-$/g, '');
+          if (!slug) {
+            // 对非 ASCII 名称使用简单哈希
+            const hash = Array.from(name).reduce((acc, c) => ((acc << 5) - acc + c.charCodeAt(0)) | 0, 0);
+            slug = `cat-${Math.abs(hash).toString(36)}`;
+          }
           const category = await tx.category.upsert({
             where: { name },
             update: {},
@@ -153,6 +159,10 @@ export const importService = {
               }
             }
 
+            if (!media.posterUrl) {
+              createdMediaForThumbnails.push({ mediaId: media.id, m3u8Url: media.m3u8Url });
+            }
+
             successCount++;
           } catch (err: any) {
             errors.push({ row: index + 1, field: 'general', message: err.message || 'Unknown error' });
@@ -161,9 +171,15 @@ export const importService = {
       });
     } catch (err: any) {
       // 事务整体失败时，所有有效条目都失败
-      if (successCount === 0) {
-        errors.push({ row: 0, field: 'transaction', message: err.message || 'Transaction failed' });
-      }
+      // 清空缩略图队列——事务回滚后 media 记录已不存在
+      createdMediaForThumbnails.length = 0;
+      successCount = 0;
+      errors.push({ row: 0, field: 'transaction', message: err.message || 'Transaction failed' });
+    }
+
+    // Enqueue thumbnail generation for newly created media without posterUrl
+    if (createdMediaForThumbnails.length > 0) {
+      thumbnailQueue.enqueueBatch(createdMediaForThumbnails);
     }
 
     // Log the import

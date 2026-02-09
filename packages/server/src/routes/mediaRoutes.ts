@@ -29,5 +29,6 @@ router.post('/:id/views', viewsLimiter, validate(idParamSchema, 'params'), media
 router.post('/', authenticate, requireRole('ADMIN'), validate(mediaCreateSchema), mediaController.create);
 router.put('/:id', authenticate, requireRole('ADMIN'), validate(idParamSchema, 'params'), validate(mediaUpdateSchema), mediaController.update);
 router.delete('/:id', authenticate, requireRole('ADMIN'), validate(idParamSchema, 'params'), mediaController.delete);
+router.post('/:id/thumbnail', authenticate, requireRole('ADMIN'), validate(idParamSchema, 'params'), mediaController.regenerateThumbnail);
 
 export default router;

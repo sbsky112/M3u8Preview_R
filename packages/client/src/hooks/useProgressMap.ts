@@ -5,6 +5,6 @@ export function useProgressMap() {
   return useQuery({
     queryKey: ['progressMap'],
     queryFn: () => historyApi.getProgressMap(),
-    staleTime: 10_000,
+    staleTime: 60_000,
   });
 }

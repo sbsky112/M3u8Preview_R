@@ -3,10 +3,7 @@ import { z } from 'zod';
 // ========== Auth Validation ==========
 export const loginSchema = z.object({
   username: z.string().min(3, '用户名至少3个字符').max(50),
-  password: z.string()
-    .min(8, '密码至少8个字符')
-    .max(100)
-    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/, '密码须包含大写字母、小写字母和数字'),
+  password: z.string().min(1, '请输入密码').max(100),
 });
 
 export const registerSchema = z.object({
@@ -15,7 +12,6 @@ export const registerSchema = z.object({
     .min(3, '用户名至少3个字符')
     .max(50)
     .regex(/^[a-zA-Z0-9_]+$/, '用户名只能包含字母、数字和下划线'),
-  email: z.string().email('请输入有效的邮箱地址'),
   password: z.string()
     .min(8, '密码至少8个字符')
     .max(100)
@@ -28,7 +24,8 @@ export const mediaCreateSchema = z.object({
   m3u8Url: z
     .string()
     .url('请输入有效的URL')
-    .regex(/\.m3u8/, 'URL必须包含.m3u8'),
+    .regex(/\.m3u8/, 'URL必须包含.m3u8')
+    .refine(url => /^https?:\/\//.test(url), { message: '仅支持 HTTP/HTTPS 协议' }),
   posterUrl: z.string().url().optional().or(z.literal('')),
   description: z.string().max(5000).optional(),
   year: z.number().int().min(1900).max(2100).optional(),
@@ -88,7 +85,7 @@ export const watchProgressSchema = z.object({
 // ========== Import Validation ==========
 export const importItemSchema = z.object({
   title: z.string().min(1),
-  m3u8Url: z.string().url(),
+  m3u8Url: z.string().url().refine(url => /^https?:\/\//.test(url), { message: 'Only HTTP(S) URLs are allowed' }),
   posterUrl: z.string().url().optional().or(z.literal('')),
   description: z.string().optional(),
   year: z.number().int().min(1900).max(2100).optional(),

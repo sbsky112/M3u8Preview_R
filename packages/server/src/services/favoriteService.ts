@@ -27,10 +27,19 @@ export const favoriteService = {
       return { isFavorited: false };
     }
 
-    await prisma.favorite.create({
-      data: { userId, mediaId },
-    });
-    return { isFavorited: true };
+    try {
+      await prisma.favorite.create({
+        data: { userId, mediaId },
+      });
+      return { isFavorited: true };
+    } catch (err: any) {
+      if (err.code === 'P2002') {
+        // 并发创建冲突，说明已存在，改为删除
+        await prisma.favorite.delete({ where: { userId_mediaId: { userId, mediaId } } });
+        return { isFavorited: false };
+      }
+      throw err;
+    }
   },
 
   async isFavorited(userId: string, mediaId: string): Promise<boolean> {

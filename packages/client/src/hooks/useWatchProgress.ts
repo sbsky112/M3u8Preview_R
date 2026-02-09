@@ -11,6 +11,7 @@ export function useWatchProgress({ mediaId, throttleMs = 15000 }: UseWatchProgre
   const progressRef = useRef({ progress: 0, duration: 0 });
 
   const syncProgress = useCallback(async () => {
+    if (!mediaId) return;
     const { progress, duration } = progressRef.current;
     if (progress <= 0 || duration <= 0) return;
 
@@ -34,7 +35,7 @@ export function useWatchProgress({ mediaId, throttleMs = 15000 }: UseWatchProgre
   // Sync on visibility change and page unload
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
+      if (document.visibilityState === 'hidden' && mediaId) {
         const { progress, duration } = progressRef.current;
         if (progress > 0 && duration > 0) {
           historyApi.sendBeacon({ mediaId, progress, duration });
@@ -43,6 +44,7 @@ export function useWatchProgress({ mediaId, throttleMs = 15000 }: UseWatchProgre
     };
 
     const handleBeforeUnload = () => {
+      if (!mediaId) return;
       const { progress, duration } = progressRef.current;
       if (progress > 0 && duration > 0) {
         historyApi.sendBeacon({ mediaId, progress, duration });
@@ -54,9 +56,11 @@ export function useWatchProgress({ mediaId, throttleMs = 15000 }: UseWatchProgre
 
     return () => {
       // Final sync on unmount — 使用 sendBeacon 保证可靠送达
-      const { progress, duration } = progressRef.current;
-      if (progress > 0 && duration > 0) {
-        historyApi.sendBeacon({ mediaId, progress, duration });
+      if (mediaId) {
+        const { progress, duration } = progressRef.current;
+        if (progress > 0 && duration > 0) {
+          historyApi.sendBeacon({ mediaId, progress, duration });
+        }
       }
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('beforeunload', handleBeforeUnload);

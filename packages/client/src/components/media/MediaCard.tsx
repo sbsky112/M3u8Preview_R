@@ -13,7 +13,7 @@ interface MediaCardProps {
 }
 
 export function MediaCard({ media, variant = 'portrait', showProgress = false, progress = 0, progressText, completed }: MediaCardProps) {
-  const thumbnail = useVideoThumbnail(media.id, media.m3u8Url, media.posterUrl, progress);
+  const thumbnail = useVideoThumbnail(media.id, media.m3u8Url, media.posterUrl);
 
   if (variant === 'landscape') {
     return (

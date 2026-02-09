@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { playlistService } from '../services/playlistService.js';
+import { safePagination } from '../utils/pagination.js';
 
 type IdParams = { id: string };
 type ItemParams = { id: string; mediaId: string };
@@ -81,8 +82,10 @@ export const playlistController = {
 
   async getPublicPlaylists(req: Request, res: Response, next: NextFunction) {
     try {
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 20;
+      const { page, limit } = safePagination(
+        parseInt(req.query.page as string) || 1,
+        parseInt(req.query.limit as string) || 20,
+      );
       const result = await playlistService.getPublicPlaylists(page, limit);
       res.json({ success: true, data: result });
     } catch (error) {

@@ -36,7 +36,7 @@ export function AdminUsersPage() {
           type="text"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="搜索用户名或邮箱..."
+          placeholder="搜索用户名..."
           className="px-4 py-2 bg-emby-bg-input border border-emby-border rounded-lg text-white text-sm placeholder-emby-text-muted focus:outline-none focus:ring-2 focus:ring-emby-green w-64"
         />
       </div>
@@ -46,7 +46,6 @@ export function AdminUsersPage() {
           <thead>
             <tr className="border-b border-emby-border-subtle">
               <th className="px-4 py-3 text-left text-emby-text-secondary font-medium">用户名</th>
-              <th className="px-4 py-3 text-left text-emby-text-secondary font-medium">邮箱</th>
               <th className="px-4 py-3 text-left text-emby-text-secondary font-medium">角色</th>
               <th className="px-4 py-3 text-left text-emby-text-secondary font-medium">状态</th>
               <th className="px-4 py-3 text-left text-emby-text-secondary font-medium">统计</th>
@@ -58,13 +57,12 @@ export function AdminUsersPage() {
             {isLoading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i} className="border-b border-emby-border-subtle/50">
-                  <td colSpan={7} className="px-4 py-3"><div className="h-5 bg-emby-bg-input rounded animate-pulse" /></td>
+                  <td colSpan={6} className="px-4 py-3"><div className="h-5 bg-emby-bg-input rounded animate-pulse" /></td>
                 </tr>
               ))
             ) : data?.items?.map((user: any) => (
               <tr key={user.id} className="border-b border-emby-border-subtle/50 hover:bg-emby-bg-input/30">
                 <td className="px-4 py-3 text-white font-medium">{user.username}</td>
-                <td className="px-4 py-3 text-emby-text-secondary">{user.email}</td>
                 <td className="px-4 py-3">
                   <select
                     value={user.role}
@@ -99,7 +97,8 @@ export function AdminUsersPage() {
                           deleteMutation.mutate(user.id);
                         }
                       }}
-                      className="text-red-400 hover:text-red-300 text-xs"
+                      disabled={deleteMutation.isPending}
+                      className="text-red-400 hover:text-red-300 text-xs disabled:opacity-50"
                     >
                       删除
                     </button>

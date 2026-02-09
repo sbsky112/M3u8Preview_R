@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { mediaService } from '../services/mediaService.js';
+import { thumbnailQueue, generateThumbnail } from '../services/thumbnailService.js';
 
 type Params = { id: string };
 
@@ -25,6 +26,9 @@ export const mediaController = {
   async create(req: Request, res: Response, next: NextFunction) {
     try {
       const media = await mediaService.create(req.body);
+      if (!media.posterUrl) {
+        thumbnailQueue.enqueue(media.id, media.m3u8Url);
+      }
       res.status(201).json({ success: true, data: media });
     } catch (error) {
       next(error);
@@ -73,6 +77,21 @@ export const mediaController = {
       const count = Math.min(parseInt(req.query.count as string) || 10, 50);
       const items = await mediaService.getRecent(count);
       res.json({ success: true, data: items });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async regenerateThumbnail(req: Request<Params>, res: Response, next: NextFunction) {
+    try {
+      const media = await mediaService.findById(req.params.id);
+      const posterUrl = await generateThumbnail(media.id, media.m3u8Url);
+      if (posterUrl) {
+        const updated = await mediaService.findById(req.params.id);
+        res.json({ success: true, data: updated });
+      } else {
+        res.status(500).json({ success: false, error: 'Thumbnail generation failed' });
+      }
     } catch (error) {
       next(error);
     }

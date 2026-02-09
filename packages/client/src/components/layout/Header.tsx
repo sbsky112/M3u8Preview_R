@@ -7,7 +7,8 @@ import {
 } from 'lucide-react';
 
 export function Header() {
-  const { user, logout } = useAuthStore();
+  const user = useAuthStore(s => s.user);
+  const logout = useAuthStore(s => s.logout);
   const navigate = useNavigate();
   const [showDropdown, setShowDropdown] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -140,7 +141,7 @@ export function Header() {
             {/* User info */}
             <div className="px-4 py-2.5 border-b border-emby-border">
               <p className="text-sm font-medium text-white">{user?.username}</p>
-              <p className="text-xs text-emby-text-secondary">{user?.email}</p>
+              <p className="text-xs text-emby-text-secondary">{user?.role === 'ADMIN' ? '管理员' : '用户'}</p>
             </div>
 
             {/* Mobile-only nav items */}

@@ -21,7 +21,7 @@ export function authenticate(req: Request, _res: Response, next: NextFunction) {
       throw new AppError('Authentication required', 401);
     }
 
-    const decoded = jwt.verify(token, config.jwt.secret);
+    const decoded = jwt.verify(token, config.jwt.secret, { algorithms: ['HS256'] });
     if (typeof decoded !== 'object' || decoded === null || !('userId' in decoded) || !('role' in decoded)) {
       throw new AppError('Invalid token payload', 401);
     }
@@ -42,7 +42,7 @@ export function optionalAuth(req: Request, _res: Response, next: NextFunction) {
     const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
 
     if (token) {
-      const decoded = jwt.verify(token, config.jwt.secret);
+      const decoded = jwt.verify(token, config.jwt.secret, { algorithms: ['HS256'] });
       if (typeof decoded !== 'object' || decoded === null || !('userId' in decoded) || !('role' in decoded)) {
         throw new AppError('Invalid token payload', 401);
       }

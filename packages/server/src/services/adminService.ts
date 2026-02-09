@@ -45,7 +45,6 @@ export const adminService = {
     if (search) {
       where.OR = [
         { username: { contains: search } },
-        { email: { contains: search } },
       ];
     }
 
@@ -55,7 +54,6 @@ export const adminService = {
         select: {
           id: true,
           username: true,
-          email: true,
           role: true,
           avatar: true,
           isActive: true,
@@ -92,9 +90,22 @@ export const adminService = {
   /**
    * Update a user's role and/or active status.
    */
-  async updateUser(id: string, data: { role?: string; isActive?: boolean }) {
+  async updateUser(id: string, data: { role?: string; isActive?: boolean }, currentUserId?: string) {
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user) throw new AppError('User not found', 404);
+
+    // 防止将 ADMIN 降级为 USER 后系统无管理员
+    if (user.role === 'ADMIN' && data.role === 'USER') {
+      const adminCount = await prisma.user.count({ where: { role: 'ADMIN' } });
+      if (adminCount <= 1) {
+        throw new AppError('Cannot demote the last admin user', 400);
+      }
+    }
+
+    // 防止管理员停用自己
+    if (currentUserId && id === currentUserId && data.isActive === false) {
+      throw new AppError('Cannot deactivate yourself', 400);
+    }
 
     const updated = await prisma.user.update({
       where: { id },
@@ -102,7 +113,6 @@ export const adminService = {
       select: {
         id: true,
         username: true,
-        email: true,
         role: true,
         avatar: true,
         isActive: true,

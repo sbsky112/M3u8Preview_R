@@ -29,7 +29,7 @@ export function PlaybackPage() {
     enabled: !!id,
   });
 
-  const { handleTimeUpdate } = useWatchProgress({ mediaId: id! });
+  const { handleTimeUpdate } = useWatchProgress({ mediaId: id ?? '' });
 
   // 显示覆盖栏并重置隐藏定时器
   const showOverlay = useCallback(() => {
@@ -56,9 +56,11 @@ export function PlaybackPage() {
 
   // 返回时刷新进度数据，确保详情页和首页都能看到最新进度
   // 延迟 invalidate，等待 sendBeacon 的进度数据先到达服务端
+  const cleanupTimerRef = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => {
     return () => {
-      setTimeout(() => {
+      if (cleanupTimerRef.current) clearTimeout(cleanupTimerRef.current);
+      cleanupTimerRef.current = setTimeout(() => {
         queryClient.invalidateQueries({ queryKey: ['watchProgress', id] });
         queryClient.invalidateQueries({ queryKey: ['progressMap'] });
         queryClient.invalidateQueries({ queryKey: ['history', 'continue'] });

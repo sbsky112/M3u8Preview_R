@@ -42,6 +42,23 @@ export function serializeMedia(media: any): Media {
   };
 }
 
+/** 序列化列表视图的精简 Media 对象（不含 description/tags） */
+export function serializeMediaList(media: any): Media {
+  return {
+    id: media.id,
+    title: media.title,
+    m3u8Url: media.m3u8Url,
+    posterUrl: media.posterUrl,
+    year: media.year,
+    rating: media.rating,
+    views: media.views,
+    status: media.status,
+    createdAt: toISO(media.createdAt),
+    updatedAt: toISO(media.updatedAt),
+    category: serializeCategory(media.category),
+  } as Media;
+}
+
 /** 序列化 Favorite 对象 */
 export function serializeFavorite(fav: any): Favorite {
   const result: any = {

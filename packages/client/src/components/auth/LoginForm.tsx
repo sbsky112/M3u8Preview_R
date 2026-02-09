@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { useNavigate, Link, useLocation, Navigate } from 'react-router-dom';
 import { Clapperboard } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore.js';
 
@@ -9,11 +9,16 @@ export function LoginForm() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const login = useAuthStore((s) => s.login);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const navigate = useNavigate();
   const location = useLocation();
 
-  // H1: 登录后重定向到来源页
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
+  // 登录后重定向到来源页，过滤登录/注册页防止循环
+  const rawFrom = (location.state as { from?: { pathname: string } })?.from?.pathname || '/';
+  const from = rawFrom === '/login' || rawFrom === '/register' ? '/' : rawFrom;
+
+  // 声明式重定向后备：已认证用户自动跳转
+  if (isAuthenticated) return <Navigate to={from} replace />;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

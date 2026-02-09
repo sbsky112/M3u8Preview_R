@@ -42,7 +42,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               应用出现了意外错误
             </h2>
             <p className="text-emby-text-secondary mb-6">
-              {this.state.error?.message || '发生了未知错误'}
+              {import.meta.env.PROD
+                ? '发生了未知错误，请刷新页面重试'
+                : (this.state.error?.message || '发生了未知错误')
+              }
             </p>
             <div className="flex gap-3 justify-center">
               <button

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { watchHistoryService } from '../services/watchHistoryService.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import { safePagination } from '../utils/pagination.js';
 
 type MediaIdParams = { mediaId: string };
 type IdParams = { id: string };
@@ -18,14 +19,16 @@ export const watchHistoryController = {
   }),
 
   getHistory: asyncHandler(async (req: Request, res: Response) => {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
+    const { page, limit } = safePagination(
+      parseInt(req.query.page as string) || 1,
+      parseInt(req.query.limit as string) || 20,
+    );
     const result = await watchHistoryService.getHistory(req.user!.userId, page, limit);
     res.json({ success: true, data: result });
   }),
 
   getContinueWatching: asyncHandler(async (req: Request, res: Response) => {
-    const limit = parseInt(req.query.limit as string) || 10;
+    const { limit } = safePagination(1, parseInt(req.query.limit as string) || 10);
     const items = await watchHistoryService.getContinueWatching(req.user!.userId, limit);
     res.json({ success: true, data: items });
   }),

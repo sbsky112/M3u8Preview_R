@@ -1,11 +1,28 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../middleware/errorHandler.js';
 import type { MediaCreateRequest, MediaUpdateRequest, MediaQueryParams, PaginatedResponse, Media } from '@m3u8-preview/shared';
-import { serializeMedia } from '../utils/serializers.js';
+import { serializeMedia, serializeMediaList } from '../utils/serializers.js';
+import { deleteThumbnail } from './thumbnailService.js';
 
 const mediaInclude = {
   category: true,
   tags: { include: { tag: true } },
+};
+
+/** 列表视图精简字段，排除 description 和 tags */
+const mediaListSelect = {
+  id: true,
+  title: true,
+  m3u8Url: true,
+  posterUrl: true,
+  year: true,
+  rating: true,
+  views: true,
+  status: true,
+  createdAt: true,
+  updatedAt: true,
+  category: { select: { id: true, name: true, slug: true, createdAt: true, updatedAt: true } },
 };
 
 export const mediaService = {
@@ -106,6 +123,7 @@ export const mediaService = {
       throw new AppError('Media not found', 404);
     }
     await prisma.media.delete({ where: { id } });
+    deleteThumbnail(id).catch(() => {});
   },
 
   async incrementViews(id: string): Promise<void> {
@@ -117,29 +135,28 @@ export const mediaService = {
 
   async getRandom(count: number = 10): Promise<Media[]> {
     const safeCount = Math.min(Math.max(1, count), 50);
-    // H6: 使用 Prisma raw query 利用 SQLite RANDOM()，避免加载全部 ID 到内存
-    const randomIds = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
-      `SELECT id FROM Media WHERE status = 'ACTIVE' ORDER BY RANDOM() LIMIT ?`,
-      safeCount,
+    // Use tagged template literal for type-safe parameterized query
+    const randomIds = await prisma.$queryRaw<Array<{ id: string }>>(
+      Prisma.sql`SELECT id FROM Media WHERE status = 'ACTIVE' ORDER BY RANDOM() LIMIT ${safeCount}`,
     );
 
     if (randomIds.length === 0) return [];
 
     const items = await prisma.media.findMany({
       where: { id: { in: randomIds.map(i => i.id) } },
-      include: mediaInclude,
+      select: mediaListSelect,
     });
-    return items.map(serializeMedia);
+    return items.map(serializeMediaList);
   },
 
   async getRecent(count: number = 10): Promise<Media[]> {
     const safeCount = Math.min(Math.max(1, count), 50);
     const items = await prisma.media.findMany({
       where: { status: 'ACTIVE' },
-      include: mediaInclude,
+      select: mediaListSelect,
       orderBy: { createdAt: 'desc' },
       take: safeCount,
     });
-    return items.map(serializeMedia);
+    return items.map(serializeMediaList);
   },
 };

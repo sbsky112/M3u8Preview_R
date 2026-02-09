@@ -10,7 +10,7 @@ const nodeEnv = process.env.NODE_ENV || 'development';
 
 // 生产环境强制校验 JWT 密钥配置（强度 + 非默认值）
 if (nodeEnv === 'production') {
-  const weakDefaults = ['change-me-in-production', 'dev-jwt-secret', 'dev-jwt-refresh-secret'];
+  const weakDefaults = ['change-me-in-production', 'change-me-in-production-refresh', 'dev-jwt-secret', 'dev-jwt-refresh-secret', 'm3u8preview-docker-default-secret-key-change-me', 'm3u8preview-docker-default-refresh-key-change-me'];
   if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32 || weakDefaults.includes(process.env.JWT_SECRET)) {
     console.error('FATAL: JWT_SECRET must be at least 32 characters and not a known default');
     process.exit(1);

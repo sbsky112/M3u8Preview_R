@@ -120,20 +120,22 @@ export const playlistService = {
       throw new AppError('Media already in playlist', 409);
     }
 
-    // Get max position
-    const maxPosition = await prisma.playlistItem.aggregate({
-      where: { playlistId },
-      _max: { position: true },
-    });
-    const nextPosition = (maxPosition._max.position ?? -1) + 1;
+    // Get max position and create item in a transaction to prevent race conditions
+    const item = await prisma.$transaction(async (tx) => {
+      const maxPosition = await tx.playlistItem.aggregate({
+        where: { playlistId },
+        _max: { position: true },
+      });
+      const nextPosition = (maxPosition._max.position ?? -1) + 1;
 
-    const item = await prisma.playlistItem.create({
-      data: {
-        playlistId,
-        mediaId,
-        position: nextPosition,
-      },
-      include: playlistItemInclude,
+      return tx.playlistItem.create({
+        data: {
+          playlistId,
+          mediaId,
+          position: nextPosition,
+        },
+        include: playlistItemInclude,
+      });
     });
 
     return serializePlaylistItem(item);
@@ -191,27 +193,34 @@ export const playlistService = {
   },
 
   async getPublicPlaylists(page: number = 1, limit: number = 20): Promise<{ items: Playlist[]; total: number; page: number; limit: number; totalPages: number }> {
-    const skip = (page - 1) * limit;
+    const safeLimit = Math.min(Math.max(1, limit), 100);
+    const skip = (page - 1) * safeLimit;
 
     const [playlists, total] = await Promise.all([
       prisma.playlist.findMany({
         where: { isPublic: true },
         include: {
+          user: { select: { username: true } },
           _count: { select: { items: true } },
         },
         orderBy: { updatedAt: 'desc' },
         skip,
-        take: limit,
+        take: safeLimit,
       }),
       prisma.playlist.count({ where: { isPublic: true } }),
     ]);
 
     return {
-      items: playlists.map(serializePlaylist),
+      items: playlists.map((p) => {
+        const serialized = serializePlaylist(p);
+        // Exclude userId from public API, expose only username
+        const { userId: _uid, ...rest } = serialized;
+        return rest;
+      }),
       total,
       page,
-      limit,
-      totalPages: Math.ceil(total / limit),
+      limit: safeLimit,
+      totalPages: Math.ceil(total / safeLimit),
     };
   },
 };

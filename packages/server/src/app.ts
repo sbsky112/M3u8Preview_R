@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import compression from 'compression';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
@@ -20,7 +21,7 @@ import importRoutes from './routes/importRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const uploadsDir = path.resolve(__dirname, '../../uploads');
+const uploadsDir = path.resolve(__dirname, '../uploads');
 
 const app = express();
 
@@ -35,19 +36,20 @@ const authLimiter = rateLimit({
 
 // Security middleware
 app.use(helmet());
+app.use(compression());
 app.use(cors({
   origin: config.cors.origin,
   credentials: true,
 }));
 
 // Body parsing
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // Logging
 if (config.nodeEnv !== 'test') {
-  app.use(morgan('dev'));
+  app.use(morgan(config.nodeEnv === 'production' ? 'combined' : 'dev'));
 }
 
 // H5: 使用绝对路径提供静态文件，添加安全头
@@ -75,7 +77,7 @@ app.use('/api/v1/history', historyRoutes);
 app.use('/api/v1/favorites', favoriteRoutes);
 app.use('/api/v1/upload', uploadRoutes);
 app.use('/api/v1/playlists', playlistRoutes);
-app.use('/api/v1/import', importRoutes);
+app.use('/api/v1/import', express.json({ limit: '10mb' }), importRoutes);
 app.use('/api/v1/admin', adminRoutes);
 
 // Health check

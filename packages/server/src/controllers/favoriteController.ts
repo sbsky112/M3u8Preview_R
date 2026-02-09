@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { favoriteService } from '../services/favoriteService.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { safePagination } from '../utils/pagination.js';
 
 type MediaIdParams = { mediaId: string };
 
@@ -34,8 +35,10 @@ export const favoriteController = {
       if (!req.user) {
         throw new AppError('Authentication required', 401);
       }
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 20;
+      const { page, limit } = safePagination(
+        parseInt(req.query.page as string) || 1,
+        parseInt(req.query.limit as string) || 20,
+      );
       const result = await favoriteService.getFavorites(req.user.userId, page, limit);
       res.json({ success: true, data: result });
     } catch (error) {

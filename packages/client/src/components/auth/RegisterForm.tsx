@@ -1,17 +1,20 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, Navigate } from 'react-router-dom';
 import { Clapperboard } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore.js';
 
 export function RegisterForm() {
   const [username, setUsername] = useState('');
-  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const register = useAuthStore((s) => s.register);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const navigate = useNavigate();
+
+  // 声明式重定向后备：已认证用户自动跳转
+  if (isAuthenticated) return <Navigate to="/" replace />;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -24,7 +27,7 @@ export function RegisterForm() {
 
     setLoading(true);
     try {
-      await register(username, email, password);
+      await register(username, password);
       navigate('/');
     } catch (err: any) {
       setError(err.response?.data?.error || '注册失败，请重试');
@@ -63,25 +66,13 @@ export function RegisterForm() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-emby-text-primary mb-1.5">邮箱</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 bg-emby-bg-input border border-emby-border rounded-md text-white placeholder-emby-text-muted focus:outline-none focus:ring-2 focus:ring-emby-green focus:border-transparent"
-              placeholder="请输入邮箱"
-              required
-            />
-          </div>
-
-          <div>
             <label className="block text-sm font-medium text-emby-text-primary mb-1.5">密码</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-3 py-2 bg-emby-bg-input border border-emby-border rounded-md text-white placeholder-emby-text-muted focus:outline-none focus:ring-2 focus:ring-emby-green focus:border-transparent"
-              placeholder="至少6个字符"
+              placeholder="至少8个字符，含大小写和数字"
               required
             />
           </div>

@@ -4,8 +4,8 @@ import { authService } from '../services/authService.js';
 export const authController = {
   async register(req: Request, res: Response, next: NextFunction) {
     try {
-      const { username, email, password } = req.body;
-      const { refreshToken, ...result } = await authService.register(username, email, password);
+      const { username, password } = req.body;
+      const { refreshToken, ...result } = await authService.register(username, password);
 
       // M9: 注册也设置 refreshToken cookie，避免需要二次登录
       res.cookie('refreshToken', refreshToken, {
@@ -50,7 +50,7 @@ export const authController = {
         return;
       }
 
-      const { accessToken, refreshToken: newRefreshToken } = await authService.refresh(token);
+      const { accessToken, refreshToken: newRefreshToken, user } = await authService.refresh(token);
 
       res.cookie('refreshToken', newRefreshToken, {
         httpOnly: true,
@@ -60,7 +60,7 @@ export const authController = {
         path: '/api/v1/auth',
       });
 
-      res.json({ success: true, data: { accessToken } });
+      res.json({ success: true, data: { accessToken, user } });
     } catch (error) {
       next(error);
     }

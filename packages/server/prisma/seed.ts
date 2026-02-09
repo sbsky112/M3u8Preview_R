@@ -18,7 +18,6 @@ async function main() {
     update: {},
     create: {
       username: 'admin',
-      email: 'admin@m3u8preview.local',
       passwordHash,
       role: 'ADMIN',
       isActive: true,
@@ -38,7 +37,6 @@ async function main() {
     update: {},
     create: {
       username: 'demo',
-      email: 'demo@m3u8preview.local',
       passwordHash: demoHash,
       role: 'USER',
       isActive: true,

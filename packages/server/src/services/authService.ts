@@ -1,19 +1,25 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { prisma } from '../lib/prisma.js';
 import { config } from '../config.js';
 import { AppError } from '../middleware/errorHandler.js';
 import type { TokenPayload, AuthResponse, User } from '@m3u8-preview/shared';
 import { UserRole } from '@m3u8-preview/shared';
 
+/** Hash a refresh token with SHA-256 for secure storage */
+function hashToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
 const REFRESH_TOKEN_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 function generateAccessToken(payload: TokenPayload): string {
-  return jwt.sign(payload, config.jwt.secret, { expiresIn: config.jwt.accessExpiresIn } as jwt.SignOptions);
+  return jwt.sign(payload, config.jwt.secret, { expiresIn: config.jwt.accessExpiresIn, algorithm: 'HS256' } as jwt.SignOptions);
 }
 
 function generateRefreshToken(payload: TokenPayload): string {
-  return jwt.sign(payload, config.jwt.refreshSecret, { expiresIn: config.jwt.refreshExpiresIn } as jwt.SignOptions);
+  return jwt.sign(payload, config.jwt.refreshSecret, { expiresIn: config.jwt.refreshExpiresIn, algorithm: 'HS256' } as jwt.SignOptions);
 }
 
 function sanitizeUser(user: any): User {
@@ -26,28 +32,32 @@ function sanitizeUser(user: any): User {
 }
 
 export const authService = {
-  async register(username: string, email: string, password: string): Promise<AuthResponse & { refreshToken: string }> {
+  async register(username: string, password: string): Promise<AuthResponse & { refreshToken: string }> {
+    // Check if registration is allowed
+    const regSetting = await prisma.systemSetting.findUnique({ where: { key: 'allowRegistration' } });
+    if (regSetting && regSetting.value === 'false') {
+      throw new AppError('注册功能已关闭', 403);
+    }
+
     // Check if user exists
-    const existing = await prisma.user.findFirst({
-      where: { OR: [{ username }, { email }] },
-    });
+    const existing = await prisma.user.findUnique({ where: { username } });
     if (existing) {
-      throw new AppError(existing.username === username ? '用户名已存在' : '邮箱已存在', 409);
+      throw new AppError('用户名已存在', 409);
     }
 
     const passwordHash = await bcrypt.hash(password, config.bcrypt.saltRounds);
     const user = await prisma.user.create({
-      data: { username, email, passwordHash },
+      data: { username, passwordHash },
     });
 
     const tokenPayload: TokenPayload = { userId: user.id, role: user.role as UserRole };
     const accessToken = generateAccessToken(tokenPayload);
     const refreshToken = generateRefreshToken(tokenPayload);
 
-    // Save refresh token
+    // Save hashed refresh token
     await prisma.refreshToken.create({
       data: {
-        token: refreshToken,
+        token: hashToken(refreshToken),
         userId: user.id,
         expiresAt: new Date(Date.now() + REFRESH_TOKEN_EXPIRY_MS),
       },
@@ -79,10 +89,10 @@ export const authService = {
     const accessToken = generateAccessToken(tokenPayload);
     const refreshToken = generateRefreshToken(tokenPayload);
 
-    // Save refresh token
+    // Save hashed refresh token
     await prisma.refreshToken.create({
       data: {
-        token: refreshToken,
+        token: hashToken(refreshToken),
         userId: user.id,
         expiresAt: new Date(Date.now() + REFRESH_TOKEN_EXPIRY_MS),
       },
@@ -95,17 +105,18 @@ export const authService = {
     };
   },
 
-  async refresh(token: string): Promise<{ accessToken: string; refreshToken: string }> {
+  async refresh(token: string): Promise<{ accessToken: string; refreshToken: string; user: User }> {
     // Verify the refresh token
     let payload: TokenPayload;
     try {
-      payload = jwt.verify(token, config.jwt.refreshSecret) as TokenPayload;
+      payload = jwt.verify(token, config.jwt.refreshSecret, { algorithms: ['HS256'] }) as TokenPayload;
     } catch {
       throw new AppError('Invalid refresh token', 401);
     }
 
-    // Check if token exists in DB
-    const storedToken = await prisma.refreshToken.findUnique({ where: { token } });
+    // Check if hashed token exists in DB
+    const tokenHash = hashToken(token);
+    const storedToken = await prisma.refreshToken.findUnique({ where: { token: tokenHash } });
     if (!storedToken || storedToken.expiresAt < new Date()) {
       if (storedToken) {
         await prisma.refreshToken.delete({ where: { id: storedToken.id } });
@@ -128,17 +139,17 @@ export const authService = {
 
     await prisma.refreshToken.create({
       data: {
-        token: newRefreshToken,
+        token: hashToken(newRefreshToken),
         userId: user.id,
         expiresAt: new Date(Date.now() + REFRESH_TOKEN_EXPIRY_MS),
       },
     });
 
-    return { accessToken, refreshToken: newRefreshToken };
+    return { accessToken, refreshToken: newRefreshToken, user: sanitizeUser(user) };
   },
 
   async logout(token: string): Promise<void> {
-    await prisma.refreshToken.deleteMany({ where: { token } });
+    await prisma.refreshToken.deleteMany({ where: { token: hashToken(token) } });
   },
 
   async getProfile(userId: string): Promise<User> {

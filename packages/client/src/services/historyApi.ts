@@ -1,4 +1,5 @@
 import api from './api.js';
+import { getAccessToken } from './api.js';
 import type { ApiResponse, WatchHistory, PaginatedResponse, WatchProgressUpdate } from '@m3u8-preview/shared';
 
 export const historyApi = {
@@ -31,8 +32,9 @@ export const historyApi = {
 
   // keepalive fetch for unload events (sendBeacon doesn't support auth headers)
   sendBeacon(data: WatchProgressUpdate) {
-    const token = localStorage.getItem('accessToken');
-    fetch('/api/v1/history/progress', {
+    const token = getAccessToken();
+    const baseURL = api.defaults.baseURL || '/api/v1';
+    fetch(`${baseURL}/history/progress`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

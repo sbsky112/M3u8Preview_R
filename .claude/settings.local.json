@@ -15,7 +15,11 @@
       "WebFetch(domain:emby-server.en.lo4d.com)",
       "WebFetch(domain:gist.github.com)",
       "WebFetch(domain:emby.media)",
-      "WebFetch(domain:jellyfin.org)"
+      "WebFetch(domain:jellyfin.org)",
+      "Bash(npm view:*)",
+      "Bash(npm pack:*)",
+      "Bash(node -e:*)",
+      "Bash(docker exec:*)"
     ]
   }
 }

@@ -20,7 +20,7 @@ export function VideoPlayer({ media, startTime = 0, onTimeUpdate, autoPlay = fal
   const containerRef = useRef<HTMLDivElement>(null);
   const networkRetryRef = useRef(0);
   const mediaRetryRef = useRef(0);
-  const { setPlaying, setCurrentTime, setDuration, setQualities, setQuality, quality } = usePlayerStore();
+  const { setPlaying, setCurrentTime, setDuration, setQualities, setQuality, quality, reset } = usePlayerStore();
 
   const initHls = useCallback(() => {
     const video = videoRef.current;
@@ -115,8 +115,9 @@ export function VideoPlayer({ media, startTime = 0, onTimeUpdate, autoPlay = fal
         hlsRef.current.destroy();
         hlsRef.current = null;
       }
+      reset(); // Reset playerStore on unmount
     };
-  }, [initHls]);
+  }, [initHls, reset]);
 
   // Video event handlers
   useEffect(() => {

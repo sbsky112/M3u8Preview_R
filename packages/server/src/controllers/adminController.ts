@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { adminService } from '../services/adminService.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import { safePagination } from '../utils/pagination.js';
+import { generateAllMissing } from '../services/thumbnailService.js';
 
 type Params = { id: string };
 
@@ -17,8 +19,10 @@ export const adminController = {
    * GET /admin/users - Get paginated user list
    */
   getUsers: asyncHandler(async (req: Request, res: Response) => {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
+    const { page, limit } = safePagination(
+      parseInt(req.query.page as string) || 1,
+      parseInt(req.query.limit as string) || 20,
+    );
     const search = req.query.search as string | undefined;
     const result = await adminService.getAllUsers(page, limit, search);
     res.json({ success: true, data: result });
@@ -30,7 +34,8 @@ export const adminController = {
    */
   updateUser: asyncHandler(async (req: Request<Params>, res: Response) => {
     const { role, isActive } = req.body;
-    const user = await adminService.updateUser(req.params.id, { role, isActive });
+    const currentUserId = req.user?.userId;
+    const user = await adminService.updateUser(req.params.id, { role, isActive }, currentUserId);
     res.json({ success: true, data: user });
   }),
 
@@ -64,11 +69,21 @@ export const adminController = {
    * GET /admin/media - Get paginated media list with admin filters
    */
   getMedia: asyncHandler(async (req: Request, res: Response) => {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
+    const { page, limit } = safePagination(
+      parseInt(req.query.page as string) || 1,
+      parseInt(req.query.limit as string) || 20,
+    );
     const search = req.query.search as string | undefined;
     const status = req.query.status as string | undefined;
     const result = await adminService.getAllMedia(page, limit, search, status);
     res.json({ success: true, data: result });
+  }),
+
+  /**
+   * POST /admin/thumbnails/generate - Generate thumbnails for all media missing posterUrl
+   */
+  generateThumbnails: asyncHandler(async (_req: Request, res: Response) => {
+    const count = await generateAllMissing();
+    res.json({ success: true, data: { enqueuedCount: count } });
   }),
 };
