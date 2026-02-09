@@ -97,8 +97,57 @@ export function MediaDetailPage() {
     <div>
       {/* Hero section */}
       <div className="relative -mx-6 -mt-4 lg:-mx-8 overflow-hidden">
+        {/* 移动端横版封面区块 */}
+        <div className="md:hidden relative">
+          <div className="relative aspect-video">
+            {thumbnail ? (
+              <img
+                src={thumbnail}
+                alt={media.title}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-b from-emby-bg-elevated to-emby-bg-base flex items-center justify-center">
+                <Film className="w-16 h-16 text-emby-text-muted" />
+              </div>
+            )}
+            {/* 返回按钮 */}
+            <button
+              onClick={() => navigate(-1)}
+              className="absolute top-4 left-4 p-2 rounded-lg bg-black/40 hover:bg-black/60 text-white transition-colors z-20"
+              aria-label="返回"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            {/* 居中播放按钮 */}
+            <button
+              onClick={handlePlay}
+              className="absolute inset-0 flex items-center justify-center z-10"
+              aria-label="播放"
+            >
+              <div className="w-14 h-14 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
+                <Play className="w-7 h-7 text-white fill-white ml-0.5" />
+              </div>
+            </button>
+            {/* 已看完标记 */}
+            {watchProgress?.completed && (
+              <div className="absolute top-4 right-4 bg-emby-green rounded-full p-1 z-20">
+                <Check className="w-4 h-4 text-white" strokeWidth={3} />
+              </div>
+            )}
+            {/* 观看进度条 */}
+            {watchProgress && !watchProgress.completed && watchProgress.percentage > 0 && (
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/40 z-10">
+                <div className="h-full bg-emby-green" style={{ width: `${Math.min(100, watchProgress.percentage)}%` }} />
+              </div>
+            )}
+            {/* 底部渐变过渡 */}
+            <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-emby-bg-base to-transparent" />
+          </div>
+        </div>
+
         {/* Background layer */}
-        <div className="absolute inset-0">
+        <div className="hidden md:block absolute inset-0">
           {thumbnail ? (
             <img
               src={thumbnail}
@@ -114,11 +163,11 @@ export function MediaDetailPage() {
         </div>
 
         {/* Foreground content */}
-        <div className="relative px-6 lg:px-8 py-10 flex gap-8 items-end min-h-[360px]">
+        <div className="relative px-6 lg:px-8 py-4 md:py-10 flex gap-4 md:gap-8 items-end md:min-h-[360px]">
           {/* 返回按钮 */}
           <button
             onClick={() => navigate(-1)}
-            className="absolute top-4 left-4 lg:left-6 p-2 rounded-lg bg-black/40 hover:bg-black/60 text-white transition-colors z-10"
+            className="hidden md:block absolute top-4 left-4 lg:left-6 p-2 rounded-lg bg-black/40 hover:bg-black/60 text-white transition-colors z-10"
             aria-label="返回"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -223,12 +272,6 @@ export function MediaDetailPage() {
           </div>
         </div>
 
-        {/* Mobile: Emby 风格进度条（移动端无封面，放在 Hero 底部） */}
-        {watchProgress && !watchProgress.completed && watchProgress.percentage > 0 && (
-          <div className="md:hidden absolute bottom-0 left-0 right-0 h-1 bg-black/40 z-10">
-            <div className="h-full bg-emby-green" style={{ width: `${Math.min(100, watchProgress.percentage)}%` }} />
-          </div>
-        )}
       </div>
 
       {/* 推荐内容 */}
