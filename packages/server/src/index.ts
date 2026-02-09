@@ -14,8 +14,8 @@ async function main() {
   // Check ffmpeg availability for thumbnail generation
   await checkFfmpeg();
 
-  server = app.listen(config.port, () => {
-    console.log(`Server running on http://localhost:${config.port}`);
+  server = app.listen(config.port, '0.0.0.0', () => {
+    console.log(`Server running on http://0.0.0.0:${config.port}`);
     console.log(`Environment: ${config.nodeEnv}`);
   });
 }

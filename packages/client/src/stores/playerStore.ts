@@ -4,6 +4,7 @@ import type { Media } from '@m3u8-preview/shared';
 interface PlayerState {
   currentMedia: Media | null;
   isPlaying: boolean;
+  isBuffering: boolean;
   currentTime: number;
   duration: number;
   volume: number;
@@ -14,6 +15,7 @@ interface PlayerState {
 
   setMedia: (media: Media | null) => void;
   setPlaying: (playing: boolean) => void;
+  setBuffering: (buffering: boolean) => void;
   setCurrentTime: (time: number) => void;
   setDuration: (duration: number) => void;
   setVolume: (volume: number) => void;
@@ -27,6 +29,7 @@ interface PlayerState {
 export const usePlayerStore = create<PlayerState>((set) => ({
   currentMedia: null,
   isPlaying: false,
+  isBuffering: false,
   currentTime: 0,
   duration: 0,
   volume: 1,
@@ -37,6 +40,7 @@ export const usePlayerStore = create<PlayerState>((set) => ({
 
   setMedia: (media) => set({ currentMedia: media }),
   setPlaying: (isPlaying) => set({ isPlaying }),
+  setBuffering: (isBuffering) => set({ isBuffering }),
   setCurrentTime: (currentTime) => set({ currentTime }),
   setDuration: (duration) => set({ duration }),
   setVolume: (volume) => set({ volume, isMuted: volume === 0 }),
@@ -47,6 +51,7 @@ export const usePlayerStore = create<PlayerState>((set) => ({
   reset: () => set({
     currentMedia: null,
     isPlaying: false,
+    isBuffering: false,
     currentTime: 0,
     duration: 0,
     quality: -1,
