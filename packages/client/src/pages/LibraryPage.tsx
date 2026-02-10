@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { mediaApi } from '../services/mediaApi.js';
 import { categoryApi } from '../services/categoryApi.js';
@@ -7,37 +7,70 @@ import { MediaGrid } from '../components/media/MediaGrid.js';
 import { useProgressMap } from '../hooks/useProgressMap.js';
 import type { Category } from '@m3u8-preview/shared';
 
+const PAGE_SIZE = 24;
+
 export function LibraryPage() {
   const [searchParams] = useSearchParams();
-  const [page, setPage] = useState(1);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [sortBy, setSortBy] = useState<string>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const search = searchParams.get('search') || '';
-
-  // H2: 搜索变化时重置分页
-  useEffect(() => {
-    setPage(1);
-  }, [search]);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   const { data: categories } = useQuery({
     queryKey: ['categories'],
     queryFn: () => categoryApi.getAll(),
   });
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['media', 'list', { page, search, categoryId: selectedCategory, sortBy, sortOrder }],
-    queryFn: () => mediaApi.getAll({
-      page,
-      limit: 24,
+  const {
+    data,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: ['media', 'list', { search, categoryId: selectedCategory, sortBy, sortOrder }],
+    queryFn: ({ pageParam }) => mediaApi.getAll({
+      page: pageParam,
+      limit: PAGE_SIZE,
       search: search || undefined,
       categoryId: selectedCategory || undefined,
       sortBy: sortBy as any,
       sortOrder,
     }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) =>
+      lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
   });
 
   const { data: progressMap } = useProgressMap();
+
+  // 哨兵元素进入视口时自动加载下一页
+  const handleIntersect = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          handleIntersect();
+        }
+      },
+      { rootMargin: '300px' },
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [handleIntersect]);
+
+  const allItems = data?.pages.flatMap((page) => page.items) ?? [];
+  const total = data?.pages[0]?.total ?? 0;
 
   return (
     <div className="space-y-6">
@@ -45,7 +78,7 @@ export function LibraryPage() {
         <h1 className="text-2xl font-bold text-white">
           {search ? `搜索: "${search}"` : '媒体库'}
         </h1>
-        {data && <span className="text-sm text-emby-text-secondary">共 {data.total} 项</span>}
+        {data && <span className="text-sm text-emby-text-secondary">共 {total} 项</span>}
       </div>
 
       {/* Filters */}
@@ -53,7 +86,7 @@ export function LibraryPage() {
         {/* Category filter */}
         <select
           value={selectedCategory}
-          onChange={(e) => { setSelectedCategory(e.target.value); setPage(1); }}
+          onChange={(e) => setSelectedCategory(e.target.value)}
           className="px-3 py-2 bg-emby-bg-input border border-emby-border rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-emby-green"
         >
           <option value="">全部分类</option>
@@ -92,31 +125,20 @@ export function LibraryPage() {
             </div>
           ))}
         </div>
-      ) : data ? (
+      ) : (
         <>
-          <MediaGrid items={data.items} emptyMessage="没有找到匹配的媒体" progressMap={progressMap} />
+          <MediaGrid items={allItems} emptyMessage="没有找到匹配的媒体" progressMap={progressMap} />
 
-          {data.totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 pt-4">
-              <button
-                onClick={() => setPage(Math.max(1, page - 1))}
-                disabled={page === 1}
-                className="px-4 py-2 bg-emby-bg-input text-white rounded-lg disabled:opacity-50 hover:bg-emby-bg-elevated transition-colors text-sm"
-              >
-                上一页
-              </button>
-              <span className="text-emby-text-secondary text-sm">{page} / {data.totalPages}</span>
-              <button
-                onClick={() => setPage(Math.min(data.totalPages, page + 1))}
-                disabled={page === data.totalPages}
-                className="px-4 py-2 bg-emby-bg-input text-white rounded-lg disabled:opacity-50 hover:bg-emby-bg-elevated transition-colors text-sm"
-              >
-                下一页
-              </button>
-            </div>
-          )}
+          {/* 哨兵元素：滚动到此处时自动加载下一页 */}
+          <div ref={sentinelRef}>
+            {isFetchingNextPage && (
+              <div className="flex justify-center py-6">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-emby-primary border-t-transparent" />
+              </div>
+            )}
+          </div>
         </>
-      ) : null}
+      )}
     </div>
   );
 }

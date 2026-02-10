@@ -1,22 +1,63 @@
+import { useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { ArrowLeft, User, Film } from 'lucide-react';
 import { mediaApi } from '../services/mediaApi.js';
 import { MediaGrid } from '../components/media/MediaGrid.js';
 import { useProgressMap } from '../hooks/useProgressMap.js';
 
+const PAGE_SIZE = 24;
+
 export function ArtistDetailPage() {
   const { name } = useParams<{ name: string }>();
   const navigate = useNavigate();
   const artistName = name ? decodeURIComponent(name) : '';
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
-  const { data, isLoading } = useQuery({
+  const {
+    data,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: ['media', 'artist', artistName],
-    queryFn: () => mediaApi.getAll({ artist: artistName, limit: 100 }),
+    queryFn: ({ pageParam }) =>
+      mediaApi.getAll({ artist: artistName, limit: PAGE_SIZE, page: pageParam }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) =>
+      lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
     enabled: !!artistName,
   });
 
   const { data: progressMap } = useProgressMap();
+
+  // 哨兵元素进入视口时自动加载下一页
+  const handleIntersect = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
+    }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          handleIntersect();
+        }
+      },
+      { rootMargin: '300px' },
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [handleIntersect]);
+
+  const allItems = data?.pages.flatMap((page) => page.items) ?? [];
+  const total = data?.pages[0]?.total ?? 0;
 
   if (isLoading) {
     return (
@@ -51,17 +92,26 @@ export function ArtistDetailPage() {
           <h1 className="text-2xl font-bold text-white">{artistName}</h1>
           <p className="text-sm text-emby-text-secondary flex items-center gap-1">
             <Film className="w-3.5 h-3.5" />
-            {data?.total ?? 0} 部作品
+            {total} 部作品
           </p>
         </div>
       </div>
 
       {/* 视频网格 */}
       <MediaGrid
-        items={data?.items ?? []}
+        items={allItems}
         emptyMessage="该作者暂无关联视频"
         progressMap={progressMap}
       />
+
+      {/* 哨兵元素：滚动到此处时自动加载下一页 */}
+      <div ref={sentinelRef}>
+        {isFetchingNextPage && (
+          <div className="flex justify-center py-6">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-emby-primary border-t-transparent" />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
