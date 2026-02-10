@@ -12,3 +12,5 @@ coverage
 packages/server/data
 packages/server/uploads/*
 !packages/server/uploads/.gitkeep
+packages/*/dist
+*.tsbuildinfo
