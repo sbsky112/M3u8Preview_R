@@ -44,4 +44,9 @@ export const mediaApi = {
     const { data } = await api.get<ApiResponse<ArtistInfo[]>>('/media/artists');
     return data.data!;
   },
+
+  async regenerateThumbnail(id: string) {
+    const { data } = await api.post<ApiResponse<Media>>(`/media/${id}/thumbnail`);
+    return data.data!;
+  },
 };

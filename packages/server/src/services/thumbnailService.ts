@@ -96,33 +96,32 @@ export async function generateThumbnail(mediaId: string, m3u8Url: string): Promi
     const seekTime = duration * (0.1 + Math.random() * 0.3);
     const outputPath = path.join(THUMBNAILS_DIR, `${mediaId}.webp`);
 
-    // 3. ffmpeg 提取帧
+    // 3. ffmpeg 提取帧（-ss 在 -i 之前，启用快速 seek 直接跳转最近关键帧）
     await execFile(ffmpegPath, [
       '-user_agent', UA,
-      '-i', m3u8Url,
       '-ss', seekTime.toFixed(2),
+      '-i', m3u8Url,
       '-vframes', '1',
       '-vf', 'scale=480:-2',
       '-c:v', 'libwebp',
       '-quality', '50',
       '-y',
       outputPath,
-    ], { timeout: 60000 });
+    ], { timeout: 30000 });
 
-    // 4. 检查文件大小，若 >30KB 则用更低质量重试
+    // 4. 检查文件大小，若 >30KB 则从本地文件重编码（避免重新下载远端流）
     const stat = await fsStat(outputPath);
     if (stat.size > 30 * 1024) {
+      const tmpPath = `${outputPath}.tmp.webp`;
       await execFile(ffmpegPath, [
-        '-user_agent', UA,
-        '-i', m3u8Url,
-        '-ss', seekTime.toFixed(2),
-        '-vframes', '1',
+        '-i', outputPath,
         '-vf', 'scale=480:-2',
         '-c:v', 'libwebp',
         '-quality', '30',
         '-y',
-        outputPath,
-      ], { timeout: 60000 });
+        tmpPath,
+      ], { timeout: 10000 });
+      fs.renameSync(tmpPath, outputPath);
     }
 
     // 5. 更新数据库
@@ -156,21 +155,49 @@ export async function deleteThumbnail(mediaId: string): Promise<void> {
 }
 
 /**
- * 后台缩略图生成队列，限制并发数避免 ffmpeg 占满 CPU
+ * 后台缩略图生成队列
+ * - 并发数可通过 THUMBNAIL_CONCURRENCY 环境变量配置，默认 5
+ * - 自动去重，同一 mediaId 不会重复入队
+ * - 支持状态查询（pending/active/completed/failed）
  */
 class ThumbnailQueue {
   private queue: Array<{ mediaId: string; m3u8Url: string }> = [];
   private active = 0;
-  private readonly concurrency = 2;
+  private readonly concurrency: number;
+  private enqueuedIds = new Set<string>();
+  private completed = 0;
+  private failed = 0;
+
+  constructor() {
+    const envVal = parseInt(process.env.THUMBNAIL_CONCURRENCY || '', 10);
+    this.concurrency = envVal > 0 && envVal <= 20 ? envVal : 5;
+  }
 
   enqueue(mediaId: string, m3u8Url: string) {
+    if (this.enqueuedIds.has(mediaId)) return;
+    this.enqueuedIds.add(mediaId);
     this.queue.push({ mediaId, m3u8Url });
     this.process();
   }
 
   enqueueBatch(items: Array<{ mediaId: string; m3u8Url: string }>) {
-    this.queue.push(...items);
+    for (const item of items) {
+      if (!this.enqueuedIds.has(item.mediaId)) {
+        this.enqueuedIds.add(item.mediaId);
+        this.queue.push(item);
+      }
+    }
     this.process();
+  }
+
+  getStatus() {
+    return {
+      pending: this.queue.length,
+      active: this.active,
+      completed: this.completed,
+      failed: this.failed,
+      concurrency: this.concurrency,
+    };
   }
 
   private async process() {
@@ -178,9 +205,19 @@ class ThumbnailQueue {
       const item = this.queue.shift()!;
       this.active++;
       generateThumbnail(item.mediaId, item.m3u8Url)
-        .catch(() => {})
+        .then((result) => {
+          if (result) {
+            this.completed++;
+          } else {
+            this.failed++;
+          }
+        })
+        .catch(() => {
+          this.failed++;
+        })
         .finally(() => {
           this.active--;
+          this.enqueuedIds.delete(item.mediaId);
           this.process();
         });
     }

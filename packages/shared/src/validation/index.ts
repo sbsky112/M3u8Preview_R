@@ -144,6 +144,9 @@ export const changePasswordSchema = z.object({
     .min(8, '密码至少8个字符')
     .max(100)
     .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/, '密码须包含大写字母、小写字母和数字'),
+}).refine(data => data.oldPassword !== data.newPassword, {
+  message: '新密码不能与旧密码相同',
+  path: ['newPassword'],
 });
 
 // ========== Batch Operations ==========

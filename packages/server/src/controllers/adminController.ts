@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { adminService } from '../services/adminService.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { safePagination } from '../utils/pagination.js';
-import { generateAllMissing } from '../services/thumbnailService.js';
+import { generateAllMissing, thumbnailQueue } from '../services/thumbnailService.js';
 
 type Params = { id: string };
 
@@ -85,6 +85,14 @@ export const adminController = {
   generateThumbnails: asyncHandler(async (_req: Request, res: Response) => {
     const count = await generateAllMissing();
     res.json({ success: true, data: { enqueuedCount: count } });
+  }),
+
+  /**
+   * GET /admin/thumbnails/status - 查询缩略图生成队列状态
+   */
+  getThumbnailStatus: asyncHandler(async (_req: Request, res: Response) => {
+    const status = thumbnailQueue.getStatus();
+    res.json({ success: true, data: status });
   }),
 
   /**

@@ -32,7 +32,7 @@ export const mediaService = {
     const safeLimit = Math.min(Math.max(1, limit), 100);
     const skip = (page - 1) * safeLimit;
 
-    const where: any = {};
+    const where: Prisma.MediaWhereInput = {};
     if (search) {
       where.OR = [
         { title: { contains: search } },

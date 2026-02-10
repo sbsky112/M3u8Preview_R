@@ -13,6 +13,7 @@ services:
       - DEMO_SEED_PASSWORD=${DEMO_SEED_PASSWORD:-Demo1234}
       - PORT=3000
       - CORS_ORIGIN=http://localhost
+      - THUMBNAIL_CONCURRENCY=${THUMBNAIL_CONCURRENCY:-5}
     volumes:
       - db-data:/data
       - uploads:/app/packages/server/uploads

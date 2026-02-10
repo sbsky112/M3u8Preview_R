@@ -3,6 +3,7 @@ node_modules/
 
 # Build output
 dist/
+*.tsbuildinfo
 
 # Prevent stale .js compiled output in client src from shadowing .tsx
 packages/client/src/**/*.js
@@ -17,10 +18,12 @@ packages/client/src/**/*.js.map
 # Database
 *.db
 *.db-journal
+packages/server/data/*
+!packages/server/data/.gitkeep
 
-# Uploads (keep directory structure)
-uploads/*
-!uploads/.gitkeep
+# Uploads (keep directory structure, ignore all generated files)
+packages/server/uploads/*
+!packages/server/uploads/.gitkeep
 
 # OS files
 .DS_Store
@@ -47,3 +50,7 @@ coverage/
 
 # Prisma
 packages/server/prisma/migrations/**/migration_lock.toml
+
+# Claude Code
+.claude/plan/
+.claude/settings.local.json

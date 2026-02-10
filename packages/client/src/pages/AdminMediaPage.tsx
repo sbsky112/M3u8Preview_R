@@ -9,6 +9,7 @@ import type { Media, MediaCreateRequest, Category } from '@m3u8-preview/shared';
 
 export function AdminMediaPage() {
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -22,9 +23,15 @@ export function AdminMediaPage() {
     setSelectedIds(new Set());
   }, [search]);
 
+  const handlePageSizeChange = useCallback((newSize: number) => {
+    setPageSize(newSize);
+    setPage(1);
+    setSelectedIds(new Set());
+  }, []);
+
   const { data, isLoading } = useQuery({
-    queryKey: ['admin', 'media', page, search],
-    queryFn: () => mediaApi.getAll({ page, limit: 20, search: search || undefined }),
+    queryKey: ['admin', 'media', page, pageSize, search],
+    queryFn: () => mediaApi.getAll({ page, limit: pageSize, search: search || undefined }),
   });
 
   const { data: categories } = useQuery({
@@ -381,11 +388,32 @@ export function AdminMediaPage() {
         </table>
       </div>
 
-      {data && data.totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2">
-          <button onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1} className="px-4 py-2 bg-emby-bg-input text-white rounded-lg disabled:opacity-50 hover:bg-emby-bg-elevated text-sm">上一页</button>
-          <span className="text-emby-text-secondary text-sm">{page} / {data.totalPages}</span>
-          <button onClick={() => setPage(Math.min(data.totalPages, page + 1))} disabled={page === data.totalPages} className="px-4 py-2 bg-emby-bg-input text-white rounded-lg disabled:opacity-50 hover:bg-emby-bg-elevated text-sm">下一页</button>
+      {data && (
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <span className="text-emby-text-secondary text-sm">共 {data.total} 项</span>
+          <div className="flex items-center gap-2">
+            {data.totalPages > 1 && (
+              <>
+                <button onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1} className="px-4 py-2 bg-emby-bg-input text-white rounded-lg disabled:opacity-50 hover:bg-emby-bg-elevated text-sm">上一页</button>
+                <span className="text-emby-text-secondary text-sm">{page} / {data.totalPages}</span>
+                <button onClick={() => setPage(Math.min(data.totalPages, page + 1))} disabled={page === data.totalPages} className="px-4 py-2 bg-emby-bg-input text-white rounded-lg disabled:opacity-50 hover:bg-emby-bg-elevated text-sm">下一页</button>
+              </>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-emby-text-secondary text-sm">每页显示</label>
+            <select
+              value={pageSize}
+              onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+              className="px-3 py-2 bg-emby-bg-input border border-emby-border rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-emby-green"
+            >
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+            <span className="text-emby-text-secondary text-sm">条</span>
+          </div>
         </div>
       )}
     </div>

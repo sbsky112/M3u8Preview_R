@@ -64,6 +64,7 @@ model Media {
   @@index([status, createdAt])
   @@index([categoryId])
   @@index([views])
+  @@index([artist])
   @@map("media")
 }
 

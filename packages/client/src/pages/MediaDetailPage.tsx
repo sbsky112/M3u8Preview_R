@@ -1,7 +1,7 @@
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Film, Play, Plus, Star, RotateCcw, Check, User } from 'lucide-react';
+import { ArrowLeft, Film, Play, Plus, Star, RotateCcw, Check, User, RefreshCw } from 'lucide-react';
 import { mediaApi } from '../services/mediaApi.js';
 import { historyApi } from '../services/historyApi.js';
 import { FavoriteButton } from '../components/media/FavoriteButton.js';
@@ -11,10 +11,14 @@ import { ScrollRow } from '../components/ui/ScrollRow.js';
 import { useVideoThumbnail } from '../hooks/useVideoThumbnail.js';
 import { useProgressMap } from '../hooks/useProgressMap.js';
 import { formatDate, formatDuration } from '../lib/utils.js';
+import { useAuth } from '../hooks/useAuth.js';
 
 export function MediaDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
   const [showAddToPlaylist, setShowAddToPlaylist] = useState(false);
   const viewIncrementedRef = useRef(false);
 
@@ -66,6 +70,13 @@ export function MediaDetailPage() {
   function handlePlay() {
     navigate(`/play/${media!.id}`);
   }
+
+  const thumbnailMutation = useMutation({
+    mutationFn: () => mediaApi.regenerateThumbnail(id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['media', id] });
+    },
+  });
 
   if (isLoading) {
     return (
@@ -277,6 +288,16 @@ export function MediaDetailPage() {
                 <Plus className="w-4 h-4" />
                 添加到列表
               </button>
+              {isAdmin && (
+                <button
+                  onClick={() => thumbnailMutation.mutate()}
+                  disabled={thumbnailMutation.isPending}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-emby-text-secondary hover:text-white bg-emby-bg-input rounded-md hover:bg-emby-bg-elevated transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <RefreshCw className={`w-4 h-4 ${thumbnailMutation.isPending ? 'animate-spin' : ''}`} />
+                  {thumbnailMutation.isPending ? '生成中...' : '刷新封面'}
+                </button>
+              )}
             </div>
           </div>
         </div>

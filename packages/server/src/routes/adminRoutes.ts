@@ -30,6 +30,7 @@ router.put('/media/batch-category', validate(batchCategorySchema), adminControll
 
 // Thumbnail management
 router.post('/thumbnails/generate', adminController.generateThumbnails);
+router.get('/thumbnails/status', adminController.getThumbnailStatus);
 
 // Backup management
 router.get('/backup/export', backupController.exportBackup);
