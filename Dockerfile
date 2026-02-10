@@ -1,16 +1,15 @@
-# Stage 1: Install dependencies
-FROM node:20-alpine AS deps
+# Stage 1: Build
+FROM node:20-alpine AS builder
 WORKDIR /app
+
+# 先复制 package 文件以利用 Docker 层缓存
 COPY package.json package-lock.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/server/package.json ./packages/server/
 COPY packages/client/package.json ./packages/client/
 RUN npm ci
 
-# Stage 2: Build
-FROM node:20-alpine AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+# 复制全部源码（node_modules 已在 .dockerignore 中排除，不会覆盖）
 COPY . .
 
 # Build shared types
@@ -44,6 +43,7 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 COPY package.json package-lock.json ./
 COPY packages/shared/package.json ./packages/shared/
 COPY packages/server/package.json ./packages/server/
+COPY packages/client/package.json ./packages/client/
 
 # Install production dependencies
 RUN npm ci --omit=dev
