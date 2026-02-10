@@ -12,13 +12,10 @@ RUN npm ci
 # 复制全部源码（node_modules 已在 .dockerignore 中排除，不会覆盖）
 COPY . .
 
-# Build shared types
-RUN npm run build -w packages/shared
-
 # Generate Prisma Client
 RUN npx prisma generate --schema=packages/server/prisma/schema.prisma
 
-# Build server
+# Build server（tsc -b 通过 references 自动先构建 shared）
 RUN npm run build -w packages/server
 
 # Compile seed script (outside src/, needs separate tsc call)
