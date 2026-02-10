@@ -15,8 +15,8 @@ COPY . .
 # Generate Prisma Client
 RUN npx prisma generate --schema=packages/server/prisma/schema.prisma
 
-# Build server（tsc -b 通过 references 自动先构建 shared）
-RUN npm run build -w packages/server
+# Build shared + server（--force 强制全量重建，绕过 Docker 中 .tsbuildinfo 一致性校验导致的 TS6305）
+RUN npx tsc -b --force packages/server/tsconfig.json
 
 # Compile seed script (outside src/, needs separate tsc call)
 RUN npx tsc --esModuleInterop --module nodenext --moduleResolution nodenext --target es2022 --outDir packages/server/dist/prisma --rootDir packages/server/prisma packages/server/prisma/seed.ts
