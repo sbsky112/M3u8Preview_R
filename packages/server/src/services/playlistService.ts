@@ -48,12 +48,13 @@ export const playlistService = {
     return serializePlaylist(playlist);
   },
 
-  async create(userId: string, data: { name: string; description?: string; isPublic?: boolean }): Promise<Playlist> {
+  async create(userId: string, data: { name: string; description?: string; posterUrl?: string; isPublic?: boolean }): Promise<Playlist> {
     const playlist = await prisma.playlist.create({
       data: {
         name: data.name,
         description: data.description || null,
-        isPublic: data.isPublic ?? false,
+        posterUrl: data.posterUrl || null,
+        isPublic: data.isPublic ?? true,
         userId,
       },
       include: {
@@ -63,7 +64,7 @@ export const playlistService = {
     return serializePlaylist(playlist);
   },
 
-  async update(id: string, userId: string, data: { name?: string; description?: string; isPublic?: boolean }): Promise<Playlist> {
+  async update(id: string, userId: string, data: { name?: string; description?: string; posterUrl?: string; isPublic?: boolean }): Promise<Playlist> {
     const existing = await prisma.playlist.findUnique({ where: { id } });
     if (!existing) {
       throw new AppError('Playlist not found', 404);
@@ -77,6 +78,7 @@ export const playlistService = {
       data: {
         ...(data.name !== undefined && { name: data.name }),
         ...(data.description !== undefined && { description: data.description }),
+        ...(data.posterUrl !== undefined && { posterUrl: data.posterUrl || null }),
         ...(data.isPublic !== undefined && { isPublic: data.isPublic }),
       },
       include: {
@@ -192,28 +194,108 @@ export const playlistService = {
     );
   },
 
-  async getPublicPlaylists(page: number = 1, limit: number = 20): Promise<{ items: Playlist[]; total: number; page: number; limit: number; totalPages: number }> {
+  async getPlaylistItems(
+    playlistId: string,
+    userId: string | undefined,
+    page: number,
+    limit: number,
+    options?: { search?: string; sortBy?: string; sortOrder?: 'asc' | 'desc' },
+  ): Promise<{ items: PlaylistItem[]; total: number; page: number; limit: number; totalPages: number }> {
+    const { search, sortBy = 'position', sortOrder = 'asc' } = options || {};
     const safeLimit = Math.min(Math.max(1, limit), 100);
     const skip = (page - 1) * safeLimit;
 
+    // 检查合集是否存在
+    const playlist = await prisma.playlist.findUnique({ where: { id: playlistId } });
+    if (!playlist) {
+      throw new AppError('Playlist not found', 404);
+    }
+
+    // 访问权限：公开合集任何人可访问，私有合集仅 owner
+    if (!playlist.isPublic) {
+      if (!userId || playlist.userId !== userId) {
+        throw new AppError('Access denied', 403);
+      }
+    }
+
+    // 构建查询条件
+    const where: any = { playlistId };
+    if (search) {
+      where.media = { title: { contains: search } };
+    }
+
+    // 构建排序
+    let orderBy: any;
+    switch (sortBy) {
+      case 'title':
+        orderBy = { media: { title: sortOrder } };
+        break;
+      case 'year':
+        orderBy = { media: { year: sortOrder } };
+        break;
+      case 'createdAt':
+        orderBy = { media: { createdAt: sortOrder } };
+        break;
+      case 'position':
+      default:
+        orderBy = { position: sortOrder };
+        break;
+    }
+
+    const [items, total] = await Promise.all([
+      prisma.playlistItem.findMany({
+        where,
+        include: playlistItemInclude,
+        orderBy,
+        skip,
+        take: safeLimit,
+      }),
+      prisma.playlistItem.count({ where }),
+    ]);
+
+    return {
+      items: items.map(serializePlaylistItem),
+      total,
+      page,
+      limit: safeLimit,
+      totalPages: Math.ceil(total / safeLimit),
+    };
+  },
+
+  async getPublicPlaylists(page: number = 1, limit: number = 20, options?: { search?: string; sortBy?: string; sortOrder?: 'asc' | 'desc' }): Promise<{ items: Playlist[]; total: number; page: number; limit: number; totalPages: number }> {
+    const { search, sortBy = 'updatedAt', sortOrder = 'desc' } = options || {};
+    const safeLimit = Math.min(Math.max(1, limit), 100);
+    const skip = (page - 1) * safeLimit;
+
+    const where: any = { isPublic: true };
+    if (search) {
+      where.name = { contains: search };
+    }
+
+    let orderBy: any;
+    if (sortBy === 'itemCount') {
+      orderBy = { items: { _count: sortOrder } };
+    } else {
+      orderBy = { [sortBy]: sortOrder };
+    }
+
     const [playlists, total] = await Promise.all([
       prisma.playlist.findMany({
-        where: { isPublic: true },
+        where,
         include: {
           user: { select: { username: true } },
           _count: { select: { items: true } },
         },
-        orderBy: { updatedAt: 'desc' },
+        orderBy,
         skip,
         take: safeLimit,
       }),
-      prisma.playlist.count({ where: { isPublic: true } }),
+      prisma.playlist.count({ where }),
     ]);
 
     return {
       items: playlists.map((p) => {
         const serialized = serializePlaylist(p);
-        // Exclude userId from public API, expose only username
         const { userId: _uid, ...rest } = serialized;
         return rest;
       }),

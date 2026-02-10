@@ -159,6 +159,7 @@ export interface Playlist {
   id: string;
   name: string;
   description?: string | null;
+  posterUrl?: string | null;
   userId: string;
   isPublic: boolean;
   items?: PlaylistItem[];
@@ -181,6 +182,7 @@ export interface PlaylistItem {
 export interface PlaylistCreateRequest {
   name: string;
   description?: string;
+  posterUrl?: string;
   isPublic?: boolean;
 }
 

@@ -4,9 +4,14 @@ import { categoryService } from '../services/categoryService.js';
 type Params = { id: string };
 
 export const categoryController = {
-  async findAll(_req: Request, res: Response, next: NextFunction) {
+  async findAll(req: Request, res: Response, next: NextFunction) {
     try {
-      const categories = await categoryService.findAll();
+      const { search, sortBy, sortOrder } = req.query;
+      const categories = await categoryService.findAll({
+        search: search as string,
+        sortBy: sortBy as any,
+        sortOrder: sortOrder as any,
+      });
       res.json({ success: true, data: categories });
     } catch (error) {
       next(error);

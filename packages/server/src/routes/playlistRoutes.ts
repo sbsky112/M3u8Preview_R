@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { playlistController } from '../controllers/playlistController.js';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, requireRole, optionalAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import {
   playlistCreateSchema,
   playlistUpdateSchema,
+  playlistItemsQuerySchema,
   idParamSchema,
   addItemBodySchema,
   reorderBodySchema,
@@ -21,10 +22,13 @@ const mediaIdParamSchema = z.object({
 // Public route
 router.get('/public', playlistController.getPublicPlaylists);
 
+// 合集内媒体分页查询（公开合集无需认证，私有合集需认证）
+router.get('/:id/items', optionalAuth, validate(idParamSchema, 'params'), validate(playlistItemsQuerySchema, 'query'), playlistController.getPlaylistItems);
+
 // All other routes require authentication
 router.get('/', authenticate, playlistController.findAll);
 router.get('/:id', authenticate, validate(idParamSchema, 'params'), playlistController.findById);
-router.post('/', authenticate, validate(playlistCreateSchema), playlistController.create);
+router.post('/', authenticate, requireRole('ADMIN'), validate(playlistCreateSchema), playlistController.create);
 router.put('/:id', authenticate, validate(idParamSchema, 'params'), validate(playlistUpdateSchema), playlistController.update);
 router.delete('/:id', authenticate, validate(idParamSchema, 'params'), playlistController.delete);
 router.post('/:id/items', authenticate, validate(idParamSchema, 'params'), validate(addItemBodySchema), playlistController.addItem);

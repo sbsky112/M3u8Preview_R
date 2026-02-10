@@ -11,12 +11,25 @@ function serializeCategory(category: any): Category {
 }
 
 export const categoryService = {
-  async findAll(): Promise<Category[]> {
+  async findAll(options?: { search?: string; sortBy?: 'name' | 'createdAt' | 'updatedAt' | 'mediaCount'; sortOrder?: 'asc' | 'desc' }): Promise<Category[]> {
+    const { search, sortBy = 'name', sortOrder = 'asc' } = options || {};
+
+    const where = search ? { name: { contains: search } } : {};
+
+    // mediaCount 排序需要特殊处理
+    let orderBy: any;
+    if (sortBy === 'mediaCount') {
+      orderBy = { media: { _count: sortOrder } };
+    } else {
+      orderBy = { [sortBy]: sortOrder };
+    }
+
     const categories = await prisma.category.findMany({
+      where,
       include: {
         _count: { select: { media: true } },
       },
-      orderBy: { name: 'asc' },
+      orderBy,
     });
     return categories.map(serializeCategory);
   },
@@ -89,11 +102,15 @@ export const categoryService = {
     return serializeCategory(category);
   },
 
-  async delete(id: string): Promise<void> {
-    const existing = await prisma.category.findUnique({ where: { id } });
+  async delete(id: string): Promise<{ mediaCount: number }> {
+    const existing = await prisma.category.findUnique({
+      where: { id },
+      include: { _count: { select: { media: true } } },
+    });
     if (!existing) {
       throw new AppError('Category not found', 404);
     }
     await prisma.category.delete({ where: { id } });
+    return { mediaCount: existing._count.media };
   },
 };

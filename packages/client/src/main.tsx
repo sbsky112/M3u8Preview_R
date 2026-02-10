@@ -23,6 +23,8 @@ import { PlaybackPage } from './pages/PlaybackPage.js';
 import { ChangePasswordPage } from './pages/ChangePasswordPage.js';
 import { ArtistDetailPage } from './pages/ArtistDetailPage.js';
 import { ArtistsPage } from './pages/ArtistsPage.js';
+import { CategoriesPage } from './pages/CategoriesPage.js';
+import { AdminCategoriesPage } from './pages/AdminCategoriesPage.js';
 import './index.css';
 
 const queryClient = new QueryClient({
@@ -69,9 +71,11 @@ function AppRoutes() {
         <Route path="/change-password" element={<ChangePasswordPage />} />
         <Route path="/artists" element={<ArtistsPage />} />
         <Route path="/artist/:name" element={<ArtistDetailPage />} />
+        <Route path="/categories" element={<CategoriesPage />} />
         <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminDashboardPage /></ProtectedRoute>} />
         <Route path="/admin/users" element={<ProtectedRoute requireAdmin><AdminUsersPage /></ProtectedRoute>} />
         <Route path="/admin/media" element={<ProtectedRoute requireAdmin><AdminMediaPage /></ProtectedRoute>} />
+        <Route path="/admin/categories" element={<ProtectedRoute requireAdmin><AdminCategoriesPage /></ProtectedRoute>} />
         <Route path="/import" element={<ProtectedRoute requireAdmin><ImportPage /></ProtectedRoute>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

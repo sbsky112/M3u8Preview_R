@@ -3,7 +3,7 @@ import { useNavigate, NavLink, Link } from 'react-router-dom';
 import { useState, useRef, useEffect } from 'react';
 import {
   Clapperboard, Search, Film, ListVideo, Heart, Clock,
-  Settings, Users, MonitorPlay, Download, Home, LogOut, ChevronDown, Lock, User,
+  Settings, Users, MonitorPlay, Download, Home, LogOut, ChevronDown, Lock, User, FolderTree,
 } from 'lucide-react';
 
 export function Header() {
@@ -117,6 +117,26 @@ export function Header() {
             </>
           )}
         </NavLink>
+        <NavLink
+          to="/categories"
+          className={({ isActive }) =>
+            `flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors relative ${
+              isActive
+                ? 'text-emby-green font-medium'
+                : 'text-emby-text-secondary hover:text-white'
+            }`
+          }
+        >
+          {({ isActive }) => (
+            <>
+              <FolderTree className="w-4 h-4" />
+              <span>分类</span>
+              {isActive && (
+                <span className="absolute bottom-0 left-3 right-3 h-0.5 bg-emby-green rounded-full" />
+              )}
+            </>
+          )}
+        </NavLink>
       </nav>
 
       {/* Spacer */}
@@ -170,6 +190,7 @@ export function Header() {
               <DropdownItem icon={Film} label="我的媒体" onClick={() => handleDropdownNav('/library')} />
               <DropdownItem icon={ListVideo} label="合集" onClick={() => handleDropdownNav('/playlists')} />
               <DropdownItem icon={User} label="作者" onClick={() => handleDropdownNav('/artists')} />
+              <DropdownItem icon={FolderTree} label="分类" onClick={() => handleDropdownNav('/categories')} />
             </div>
 
             {/* Common nav items */}
@@ -184,6 +205,7 @@ export function Header() {
                 <DropdownItem icon={Settings} label="管理面板" onClick={() => handleDropdownNav('/admin')} />
                 <DropdownItem icon={Users} label="用户管理" onClick={() => handleDropdownNav('/admin/users')} />
                 <DropdownItem icon={MonitorPlay} label="媒体管理" onClick={() => handleDropdownNav('/admin/media')} />
+                <DropdownItem icon={FolderTree} label="分类管理" onClick={() => handleDropdownNav('/admin/categories')} />
                 <DropdownItem icon={Download} label="导入媒体" onClick={() => handleDropdownNav('/import')} />
               </div>
             )}

@@ -122,6 +122,7 @@ model Playlist {
   id          String   @id @default(uuid())
   name        String
   description String?
+  posterUrl   String?
   userId      String
   isPublic    Boolean  @default(false)
   createdAt   DateTime @default(now())

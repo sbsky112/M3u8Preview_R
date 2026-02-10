@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Film, Plus, Trash2, ToggleLeft, X } from 'lucide-react';
+import { Film, Plus, Trash2, ToggleLeft, X, ChevronDown, Check } from 'lucide-react';
 import { mediaApi } from '../services/mediaApi.js';
 import { adminApi } from '../services/adminApi.js';
 import { categoryApi } from '../services/categoryApi.js';
@@ -139,6 +139,7 @@ export function AdminMediaPage() {
       year: media.year || undefined,
       rating: media.rating || undefined,
       artist: media.artist || '',
+      categoryId: media.categoryId || '',
     });
     setShowAdd(true);
   }
@@ -242,6 +243,12 @@ export function AdminMediaPage() {
                 className="flex-1 px-3 py-2 bg-emby-bg-input border border-emby-border rounded-md text-white text-sm placeholder-emby-text-muted focus:outline-none focus:ring-2 focus:ring-emby-green"
               />
             </div>
+            {/* 可搜索分类选择 */}
+            <CategoryCombobox
+              categories={categories || []}
+              value={form.categoryId}
+              onChange={(categoryId) => setForm({ ...form, categoryId })}
+            />
           </div>
           <textarea
             value={form.description || ''}
@@ -414,6 +421,155 @@ export function AdminMediaPage() {
             </select>
             <span className="text-emby-text-secondary text-sm">条</span>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==================== 可搜索分类选择器 ====================
+
+interface CategoryComboboxProps {
+  categories: Category[];
+  value: string | undefined;
+  onChange: (categoryId: string | undefined) => void;
+}
+
+function CategoryCombobox({ categories, value, onChange }: CategoryComboboxProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  const [highlightIndex, setHighlightIndex] = useState(-1);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // 选中的分类名
+  const selectedName = value ? categories.find(c => c.id === value)?.name || '' : '';
+
+  // 过滤后的选项
+  const filtered = useMemo(() => {
+    if (!searchText) return categories;
+    const lower = searchText.toLowerCase();
+    return categories.filter(c => c.name.toLowerCase().includes(lower));
+  }, [categories, searchText]);
+
+  // 点击外部关闭
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+        setSearchText('');
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // 打开时重置
+  function handleOpen() {
+    setIsOpen(true);
+    setSearchText('');
+    setHighlightIndex(-1);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }
+
+  // 选择分类
+  function handleSelect(categoryId: string | undefined) {
+    onChange(categoryId);
+    setIsOpen(false);
+    setSearchText('');
+  }
+
+  // 键盘导航
+  function handleKeyDown(e: React.KeyboardEvent) {
+    const total = filtered.length + 1; // +1 "无分类"选项
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightIndex(prev => (prev + 1) % total);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightIndex(prev => (prev - 1 + total) % total);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (highlightIndex === 0) {
+        handleSelect(undefined);
+      } else if (highlightIndex > 0 && highlightIndex <= filtered.length) {
+        handleSelect(filtered[highlightIndex - 1].id);
+      }
+    } else if (e.key === 'Escape') {
+      setIsOpen(false);
+      setSearchText('');
+    }
+  }
+
+  return (
+    <div ref={containerRef} className="relative">
+      {/* 触发器 */}
+      {isOpen ? (
+        <input
+          ref={inputRef}
+          value={searchText}
+          onChange={e => { setSearchText(e.target.value); setHighlightIndex(-1); }}
+          onKeyDown={handleKeyDown}
+          placeholder="搜索分类..."
+          className="w-full px-3 py-2 bg-emby-bg-input border border-emby-green rounded-md text-white text-sm placeholder-emby-text-muted focus:outline-none focus:ring-2 focus:ring-emby-green"
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={handleOpen}
+          className="w-full px-3 py-2 bg-emby-bg-input border border-emby-border rounded-md text-sm text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-emby-green"
+        >
+          <span className={value ? 'text-white' : 'text-emby-text-muted'}>
+            {selectedName || '选择分类'}
+          </span>
+          <span className="flex items-center gap-1">
+            {value && (
+              <span
+                onClick={(e) => { e.stopPropagation(); handleSelect(undefined); }}
+                className="text-emby-text-muted hover:text-white p-0.5"
+              >
+                <X className="w-3.5 h-3.5" />
+              </span>
+            )}
+            <ChevronDown className="w-4 h-4 text-emby-text-muted" />
+          </span>
+        </button>
+      )}
+
+      {/* 下拉菜单 */}
+      {isOpen && (
+        <div className="absolute z-50 mt-1 w-full bg-emby-bg-dialog border border-emby-border rounded-md shadow-xl max-h-48 overflow-y-auto">
+          {/* 无分类选项 */}
+          <button
+            type="button"
+            onClick={() => handleSelect(undefined)}
+            className={`w-full px-3 py-2 text-sm text-left flex items-center justify-between transition-colors ${
+              highlightIndex === 0 ? 'bg-emby-bg-elevated' : 'hover:bg-emby-bg-elevated'
+            } ${!value ? 'text-emby-green' : 'text-emby-text-secondary'}`}
+          >
+            无分类
+            {!value && <Check className="w-4 h-4" />}
+          </button>
+
+          {/* 分类选项 */}
+          {filtered.map((cat, i) => (
+            <button
+              key={cat.id}
+              type="button"
+              onClick={() => handleSelect(cat.id)}
+              className={`w-full px-3 py-2 text-sm text-left flex items-center justify-between transition-colors ${
+                highlightIndex === i + 1 ? 'bg-emby-bg-elevated' : 'hover:bg-emby-bg-elevated'
+              } ${value === cat.id ? 'text-emby-green' : 'text-white'}`}
+            >
+              {cat.name}
+              {value === cat.id && <Check className="w-4 h-4" />}
+            </button>
+          ))}
+
+          {/* 无结果 */}
+          {filtered.length === 0 && searchText && (
+            <div className="px-3 py-2 text-sm text-emby-text-muted">未找到分类</div>
+          )}
         </div>
       )}
     </div>

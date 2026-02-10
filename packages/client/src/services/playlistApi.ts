@@ -1,9 +1,14 @@
 import api from './api.js';
-import type { ApiResponse, Playlist } from '@m3u8-preview/shared';
+import type { ApiResponse, Playlist, PlaylistItem, PaginatedResponse } from '@m3u8-preview/shared';
 
 export const playlistApi = {
   async getAll() {
     const { data } = await api.get<ApiResponse<Playlist[]>>('/playlists');
+    return data.data!;
+  },
+
+  async getPublicPlaylists(params?: { page?: number; limit?: number; search?: string; sortBy?: string; sortOrder?: string }) {
+    const { data } = await api.get<ApiResponse<PaginatedResponse<Playlist>>>('/playlists/public', { params });
     return data.data!;
   },
 
@@ -17,7 +22,7 @@ export const playlistApi = {
     return data.data!;
   },
 
-  async update(id: string, payload: { name?: string; description?: string; isPublic?: boolean }) {
+  async update(id: string, payload: { name?: string; description?: string; posterUrl?: string; isPublic?: boolean }) {
     const { data } = await api.put<ApiResponse<Playlist>>(`/playlists/${id}`, payload);
     return data.data!;
   },
@@ -36,5 +41,16 @@ export const playlistApi = {
 
   async reorder(playlistId: string, itemIds: string[]) {
     await api.put(`/playlists/${playlistId}/reorder`, { itemIds });
+  },
+
+  async getPlaylistItems(
+    playlistId: string,
+    params?: { page?: number; limit?: number; search?: string; sortBy?: string; sortOrder?: string },
+  ) {
+    const { data } = await api.get<ApiResponse<PaginatedResponse<PlaylistItem>>>(
+      `/playlists/${playlistId}/items`,
+      { params },
+    );
+    return data.data!;
   },
 };

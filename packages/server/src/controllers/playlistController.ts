@@ -86,7 +86,40 @@ export const playlistController = {
         parseInt(req.query.page as string) || 1,
         parseInt(req.query.limit as string) || 20,
       );
-      const result = await playlistService.getPublicPlaylists(page, limit);
+      const { search, sortBy, sortOrder } = req.query;
+      const result = await playlistService.getPublicPlaylists(page, limit, {
+        search: search as string,
+        sortBy: sortBy as string,
+        sortOrder: sortOrder as any,
+      });
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async getPlaylistItems(req: Request<IdParams>, res: Response, next: NextFunction) {
+    try {
+      const { page, limit } = safePagination(
+        parseInt(req.query.page as string) || 1,
+        parseInt(req.query.limit as string) || 24,
+      );
+      const { search, sortBy, sortOrder } = req.query;
+
+      // 可选认证：userId 可能为 undefined（公开合集无需认证）
+      const userId = req.user?.userId;
+
+      const result = await playlistService.getPlaylistItems(
+        req.params.id,
+        userId,
+        page,
+        limit,
+        {
+          search: search as string,
+          sortBy: sortBy as string,
+          sortOrder: sortOrder as any,
+        },
+      );
       res.json({ success: true, data: result });
     } catch (error) {
       next(error);

@@ -72,10 +72,19 @@ export const tagCreateSchema = z.object({
 export const playlistCreateSchema = z.object({
   name: z.string().min(1, '播放列表名不能为空').max(100),
   description: z.string().max(500).optional(),
-  isPublic: z.boolean().default(false),
+  posterUrl: z.string().url().optional().or(z.literal('')),
+  isPublic: z.boolean().default(true),
 });
 
 export const playlistUpdateSchema = playlistCreateSchema.partial();
+
+export const playlistItemsQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(24),
+  search: z.string().optional(),
+  sortBy: z.enum(['position', 'title', 'year', 'createdAt']).default('position'),
+  sortOrder: z.enum(['asc', 'desc']).default('asc'),
+});
 
 // ========== Watch Progress Validation ==========
 export const watchProgressSchema = z.object({
