@@ -54,6 +54,9 @@ COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 COPY --from=builder /app/packages/server/dist ./packages/server/dist
 COPY --from=builder /app/packages/client/dist ./packages/client/dist
 
+# 保留前端构建产物的镜像副本，用于每次启动时同步到卷
+RUN cp -a /app/packages/client/dist /app/packages/client/dist-image
+
 # Create data and uploads directories with proper ownership
 RUN mkdir -p /data /app/packages/server/uploads/thumbnails && \
     chown -R appuser:appgroup /data /app/packages/server/uploads /app/packages/server/prisma
