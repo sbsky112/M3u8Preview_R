@@ -98,12 +98,12 @@ export function ImportPage() {
 
           {format === 'text' ? (
             <div className="space-y-2">
-              <p className="text-sm text-emby-text-secondary">每行一条记录。格式：纯URL 或 标题|URL|分类|标签1,标签2</p>
+              <p className="text-sm text-emby-text-secondary">每行一条记录。格式：纯URL 或 标题|URL|作者 或 标题|URL|分类|标签|作者</p>
               <textarea
                 value={textContent}
                 onChange={e => setTextContent(e.target.value)}
                 rows={12}
-                placeholder={"https://example.com/video1.m3u8\n示例视频|https://example.com/video2.m3u8|电影|动作,科幻"}
+                placeholder={"https://example.com/video1.m3u8\n示例视频|https://example.com/video2.m3u8|张三\n示例视频|https://example.com/video3.m3u8|电影|动作,科幻|张三"}
                 className="w-full px-4 py-3 bg-emby-bg-card border border-emby-border rounded-lg text-white placeholder-emby-text-muted text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emby-green resize-y"
               />
             </div>
@@ -170,6 +170,7 @@ export function ImportPage() {
                   <th className="px-4 py-3 text-left text-emby-text-secondary font-medium">#</th>
                   <th className="px-4 py-3 text-left text-emby-text-secondary font-medium">标题</th>
                   <th className="px-4 py-3 text-left text-emby-text-secondary font-medium">URL</th>
+                  <th className="px-4 py-3 text-left text-emby-text-secondary font-medium">作者</th>
                   <th className="px-4 py-3 text-left text-emby-text-secondary font-medium">分类</th>
                   <th className="px-4 py-3 text-left text-emby-text-secondary font-medium">标签</th>
                   <th className="px-4 py-3 text-left text-emby-text-secondary font-medium">状态</th>
@@ -183,6 +184,7 @@ export function ImportPage() {
                       <td className="px-4 py-2 text-emby-text-muted">{i + 1}</td>
                       <td className="px-4 py-2 text-white max-w-48 truncate">{item.title || '-'}</td>
                       <td className="px-4 py-2 text-emby-text-secondary max-w-48 truncate">{item.m3u8Url || '-'}</td>
+                      <td className="px-4 py-2 text-emby-text-secondary">{item.artist || '-'}</td>
                       <td className="px-4 py-2 text-emby-text-secondary">{item.categoryName || '-'}</td>
                       <td className="px-4 py-2 text-emby-text-secondary">{item.tagNames?.join(', ') || '-'}</td>
                       <td className="px-4 py-2">

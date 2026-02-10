@@ -1,5 +1,5 @@
 import api from './api.js';
-import type { ApiResponse, Media, PaginatedResponse, MediaQueryParams, MediaCreateRequest } from '@m3u8-preview/shared';
+import type { ApiResponse, Media, PaginatedResponse, MediaQueryParams, MediaCreateRequest, ArtistInfo } from '@m3u8-preview/shared';
 
 export const mediaApi = {
   async getAll(params?: MediaQueryParams) {
@@ -38,5 +38,10 @@ export const mediaApi = {
 
   async incrementViews(id: string) {
     await api.post(`/media/${id}/views`);
+  },
+
+  async getArtists() {
+    const { data } = await api.get<ApiResponse<ArtistInfo[]>>('/media/artists');
+    return data.data!;
   },
 };

@@ -51,6 +51,7 @@ export function serializeMediaList(media: any): Media {
     posterUrl: media.posterUrl,
     year: media.year,
     rating: media.rating,
+    artist: media.artist,
     views: media.views,
     status: media.status,
     createdAt: toISO(media.createdAt),

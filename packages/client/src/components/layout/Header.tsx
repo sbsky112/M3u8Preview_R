@@ -3,7 +3,7 @@ import { useNavigate, NavLink, Link } from 'react-router-dom';
 import { useState, useRef, useEffect } from 'react';
 import {
   Clapperboard, Search, Film, ListVideo, Heart, Clock,
-  Settings, Users, MonitorPlay, Download, Home, LogOut, ChevronDown,
+  Settings, Users, MonitorPlay, Download, Home, LogOut, ChevronDown, Lock, User,
 } from 'lucide-react';
 
 export function Header() {
@@ -97,6 +97,26 @@ export function Header() {
             </>
           )}
         </NavLink>
+        <NavLink
+          to="/artists"
+          className={({ isActive }) =>
+            `flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md transition-colors relative ${
+              isActive
+                ? 'text-emby-green font-medium'
+                : 'text-emby-text-secondary hover:text-white'
+            }`
+          }
+        >
+          {({ isActive }) => (
+            <>
+              <User className="w-4 h-4" />
+              <span>作者</span>
+              {isActive && (
+                <span className="absolute bottom-0 left-3 right-3 h-0.5 bg-emby-green rounded-full" />
+              )}
+            </>
+          )}
+        </NavLink>
       </nav>
 
       {/* Spacer */}
@@ -149,6 +169,7 @@ export function Header() {
               <DropdownItem icon={Home} label="首页" onClick={() => handleDropdownNav('/')} />
               <DropdownItem icon={Film} label="我的媒体" onClick={() => handleDropdownNav('/library')} />
               <DropdownItem icon={ListVideo} label="合集" onClick={() => handleDropdownNav('/playlists')} />
+              <DropdownItem icon={User} label="作者" onClick={() => handleDropdownNav('/artists')} />
             </div>
 
             {/* Common nav items */}
@@ -169,6 +190,7 @@ export function Header() {
 
             {/* Logout */}
             <div className="py-1">
+              <DropdownItem icon={Lock} label="修改密码" onClick={() => handleDropdownNav('/change-password')} />
               <button
                 onClick={handleLogout}
                 className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-400 hover:bg-emby-bg-elevated transition-colors"

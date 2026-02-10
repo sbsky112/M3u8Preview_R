@@ -48,6 +48,7 @@ model Media {
   year        Int?
   rating      Float?
   duration    Int?     // duration in seconds
+  artist      String?
   views       Int      @default(0)
   status      String   @default("ACTIVE") // ACTIVE | INACTIVE | ERROR
   categoryId  String?

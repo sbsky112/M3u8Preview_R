@@ -165,4 +165,27 @@ export const authService = {
     }
     return sanitizeUser(user);
   },
+
+  async changePassword(userId: string, oldPassword: string, newPassword: string): Promise<void> {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new AppError('用户不存在', 404);
+    }
+
+    const valid = await bcrypt.compare(oldPassword, user.passwordHash);
+    if (!valid) {
+      throw new AppError('旧密码错误', 401);
+    }
+
+    const newHash = await bcrypt.hash(newPassword, config.bcrypt.saltRounds);
+
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: userId },
+        data: { passwordHash: newHash },
+      }),
+      // 删除该用户所有 refresh token，强制所有设备重新登录
+      prisma.refreshToken.deleteMany({ where: { userId } }),
+    ]);
+  },
 };

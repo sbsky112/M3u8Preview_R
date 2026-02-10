@@ -20,7 +20,8 @@
       "Bash(npm pack:*)",
       "Bash(node -e:*)",
       "Bash(docker exec:*)",
-      "mcp__sequentialthinking__sequentialthinking"
+      "mcp__sequentialthinking__sequentialthinking",
+      "Bash(npx -w packages/shared tsup:*)"
     ]
   }
 }

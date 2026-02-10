@@ -131,6 +131,7 @@ export function AdminMediaPage() {
       description: media.description || '',
       year: media.year || undefined,
       rating: media.rating || undefined,
+      artist: media.artist || '',
     });
     setShowAdd(true);
   }
@@ -209,6 +210,12 @@ export function AdminMediaPage() {
               value={form.posterUrl || ''}
               onChange={e => setForm({ ...form, posterUrl: e.target.value })}
               placeholder="海报 URL"
+              className="px-3 py-2 bg-emby-bg-input border border-emby-border rounded-md text-white text-sm placeholder-emby-text-muted focus:outline-none focus:ring-2 focus:ring-emby-green"
+            />
+            <input
+              value={form.artist || ''}
+              onChange={e => setForm({ ...form, artist: e.target.value })}
+              placeholder="作者"
               className="px-3 py-2 bg-emby-bg-input border border-emby-border rounded-md text-white text-sm placeholder-emby-text-muted focus:outline-none focus:ring-2 focus:ring-emby-green"
             />
             <div className="flex gap-2">

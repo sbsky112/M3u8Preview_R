@@ -144,6 +144,7 @@ export const importService = {
                 posterUrl: item.posterUrl || null,
                 description: item.description || null,
                 year: item.year || null,
+                artist: item.artist || null,
                 categoryId: item.categoryName ? (categoryMap.get(item.categoryName) || null) : null,
               },
             });
@@ -206,7 +207,7 @@ export const importService = {
   },
 
   generateCsvTemplate(): string {
-    return 'title,m3u8Url,posterUrl,description,year,category,tags\n"\u793a\u4f8b\u89c6\u9891","https://example.com/video.m3u8","https://example.com/poster.jpg","\u89c6\u9891\u63cf\u8ff0",2024,"\u7535\u5f71","\u52a8\u4f5c,\u79d1\u5e7b"\n';
+    return 'title,m3u8Url,posterUrl,description,year,artist,category,tags\n"\u793a\u4f8b\u89c6\u9891","https://example.com/video.m3u8","https://example.com/poster.jpg","\u89c6\u9891\u63cf\u8ff0",2024,"\u5f20\u4e09","\u7535\u5f71","\u52a8\u4f5c,\u79d1\u5e7b"\n';
   },
 
   generateJsonTemplate(): string {
@@ -217,6 +218,7 @@ export const importService = {
         posterUrl: 'https://example.com/poster.jpg',
         description: '\u89c6\u9891\u63cf\u8ff0',
         year: 2024,
+        artist: '\u5f20\u4e09',
         categoryName: '\u7535\u5f71',
         tagNames: ['\u52a8\u4f5c', '\u79d1\u5e7b'],
       },

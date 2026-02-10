@@ -1,7 +1,7 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Film, Play, Plus, Star, RotateCcw, Check } from 'lucide-react';
+import { ArrowLeft, Film, Play, Plus, Star, RotateCcw, Check, User } from 'lucide-react';
 import { mediaApi } from '../services/mediaApi.js';
 import { historyApi } from '../services/historyApi.js';
 import { FavoriteButton } from '../components/media/FavoriteButton.js';
@@ -213,6 +213,15 @@ export function MediaDetailPage() {
               )}
               {media.category && (
                 <span className="px-2 py-0.5 bg-white/10 rounded text-emby-text-primary text-xs">{media.category.name}</span>
+              )}
+              {media.artist && (
+                <Link
+                  to={`/artist/${encodeURIComponent(media.artist)}`}
+                  className="flex items-center gap-1 hover:text-emby-green-light transition-colors"
+                >
+                  <User className="w-4 h-4" />
+                  {media.artist}
+                </Link>
               )}
               <span>{media.views} 次播放</span>
               <span>添加于 {formatDate(media.createdAt)}</span>

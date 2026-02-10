@@ -1,7 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../middleware/errorHandler.js';
-import type { MediaCreateRequest, MediaUpdateRequest, MediaQueryParams, PaginatedResponse, Media } from '@m3u8-preview/shared';
+import type { MediaCreateRequest, MediaUpdateRequest, MediaQueryParams, PaginatedResponse, Media, ArtistInfo } from '@m3u8-preview/shared';
 import { serializeMedia, serializeMediaList } from '../utils/serializers.js';
 import { deleteThumbnail } from './thumbnailService.js';
 
@@ -18,6 +18,7 @@ const mediaListSelect = {
   posterUrl: true,
   year: true,
   rating: true,
+  artist: true,
   views: true,
   status: true,
   createdAt: true,
@@ -27,7 +28,7 @@ const mediaListSelect = {
 
 export const mediaService = {
   async findAll(query: MediaQueryParams): Promise<PaginatedResponse<Media>> {
-    const { page = 1, limit = 20, search, categoryId, tagId, status, sortBy = 'createdAt', sortOrder = 'desc' } = query;
+    const { page = 1, limit = 20, search, categoryId, tagId, artist, status, sortBy = 'createdAt', sortOrder = 'desc' } = query;
     const safeLimit = Math.min(Math.max(1, limit), 100);
     const skip = (page - 1) * safeLimit;
 
@@ -36,10 +37,12 @@ export const mediaService = {
       where.OR = [
         { title: { contains: search } },
         { description: { contains: search } },
+        { artist: { contains: search } },
       ];
     }
     if (categoryId) where.categoryId = categoryId;
     if (status) where.status = status;
+    if (artist) where.artist = artist;
     if (tagId) {
       where.tags = { some: { tagId } };
     }
@@ -158,5 +161,20 @@ export const mediaService = {
       take: safeCount,
     });
     return items.map(serializeMediaList);
+  },
+
+  async getArtists(): Promise<ArtistInfo[]> {
+    const result = await prisma.media.groupBy({
+      by: ['artist'],
+      where: {
+        status: 'ACTIVE',
+        artist: { not: null },
+      },
+      _count: { id: true },
+      orderBy: { _count: { id: 'desc' } },
+    });
+    return result
+      .filter((r): r is typeof r & { artist: string } => r.artist !== null && r.artist !== '')
+      .map(r => ({ name: r.artist, videoCount: r._count.id }));
   },
 };

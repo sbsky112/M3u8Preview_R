@@ -20,6 +20,7 @@ const viewsLimiter = rateLimit({
 router.get('/', validate(mediaQuerySchema, 'query'), mediaController.findAll);
 router.get('/recent', mediaController.getRecent);
 router.get('/random', mediaController.getRandom);
+router.get('/artists', mediaController.getArtists);
 router.get('/:id', validate(idParamSchema, 'params'), mediaController.findById);
 
 // Authenticated routes

@@ -31,6 +31,7 @@ export const mediaCreateSchema = z.object({
   year: z.number().int().min(1900).max(2100).optional(),
   rating: z.number().min(0).max(10).optional(),
   duration: z.number().int().min(0).optional(),
+  artist: z.string().max(200).optional(),
   categoryId: z.string().uuid().optional(),
   tagIds: z.array(z.string().uuid()).optional(),
 });
@@ -43,6 +44,7 @@ export const mediaQuerySchema = z.object({
   search: z.string().optional(),
   categoryId: z.string().uuid().optional(),
   tagId: z.string().uuid().optional(),
+  artist: z.string().optional(),
   status: z.enum(['ACTIVE', 'INACTIVE', 'ERROR']).optional(),
   sortBy: z.enum(['title', 'createdAt', 'year', 'rating', 'views']).default('createdAt'),
   sortOrder: z.enum(['asc', 'desc']).default('desc'),
@@ -89,6 +91,7 @@ export const importItemSchema = z.object({
   posterUrl: z.string().url().optional().or(z.literal('')),
   description: z.string().optional(),
   year: z.number().int().min(1900).max(2100).optional(),
+  artist: z.string().optional(),
   categoryName: z.string().optional(),
   tagNames: z.array(z.string()).optional(),
 });
@@ -132,6 +135,15 @@ export const addItemBodySchema = z.object({
 
 export const reorderBodySchema = z.object({
   itemIds: z.array(z.string().uuid()).min(1),
+});
+
+// ========== Change Password Validation ==========
+export const changePasswordSchema = z.object({
+  oldPassword: z.string().min(1, '请输入旧密码'),
+  newPassword: z.string()
+    .min(8, '密码至少8个字符')
+    .max(100)
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/, '密码须包含大写字母、小写字母和数字'),
 });
 
 // ========== Batch Operations ==========

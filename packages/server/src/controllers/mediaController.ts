@@ -82,6 +82,15 @@ export const mediaController = {
     }
   },
 
+  async getArtists(_req: Request, res: Response, next: NextFunction) {
+    try {
+      const artists = await mediaService.getArtists();
+      res.json({ success: true, data: artists });
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async regenerateThumbnail(req: Request<Params>, res: Response, next: NextFunction) {
     try {
       const media = await mediaService.findById(req.params.id);

@@ -10,6 +10,7 @@ export function parseJson(content: string): ImportItem[] {
     posterUrl: item.posterUrl || item.poster_url || item.poster || undefined,
     description: item.description || undefined,
     year: item.year ? parseInt(item.year) : undefined,
+    artist: item.artist || item.artistName || item['作者'] || undefined,
     categoryName: item.category || item.categoryName || undefined,
     tagNames: item.tags || item.tagNames || undefined,
   }));

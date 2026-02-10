@@ -4,7 +4,9 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-dotenvConfig({ path: path.resolve(__dirname, '../.env') });
+// 先加载根目录 .env（全局配置），再加载 packages/server/.env（本地覆盖）
+dotenvConfig({ path: path.resolve(__dirname, '../../../.env') });
+dotenvConfig({ path: path.resolve(__dirname, '../.env'), override: true });
 
 const nodeEnv = process.env.NODE_ENV || 'development';
 

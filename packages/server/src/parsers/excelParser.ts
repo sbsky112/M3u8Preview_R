@@ -15,6 +15,7 @@ export function parseExcel(buffer: Buffer): ImportItem[] {
       posterUrl: row.posterUrl || row.poster_url || row.poster || row['\u6d77\u62a5'] || undefined,
       description: row.description || row['\u63cf\u8ff0'] || row.Description || undefined,
       year: row.year || row['\u5e74\u4efd'] || row.Year ? parseInt(String(row.year || row['\u5e74\u4efd'] || row.Year)) : undefined,
+      artist: row.artist || row['\u4f5c\u8005'] || row['\u6f14\u5458'] || row.Artist || undefined,
       categoryName: row.category || row['\u5206\u7c7b'] || row.Category || undefined,
       tagNames: (row.tags || row['\u6807\u7b7e'] || row.Tags) ? String(row.tags || row['\u6807\u7b7e'] || row.Tags).split(',').map((t: string) => t.trim()).filter(Boolean) : undefined,
     };

@@ -20,6 +20,9 @@ import { AdminDashboardPage } from './pages/AdminDashboardPage.js';
 import { AdminUsersPage } from './pages/AdminUsersPage.js';
 import { AdminMediaPage } from './pages/AdminMediaPage.js';
 import { PlaybackPage } from './pages/PlaybackPage.js';
+import { ChangePasswordPage } from './pages/ChangePasswordPage.js';
+import { ArtistDetailPage } from './pages/ArtistDetailPage.js';
+import { ArtistsPage } from './pages/ArtistsPage.js';
 import './index.css';
 
 const queryClient = new QueryClient({
@@ -63,6 +66,9 @@ function AppRoutes() {
         <Route path="/playlists" element={<PlaylistsPage />} />
         <Route path="/playlists/:id" element={<PlaylistDetailPage />} />
         <Route path="/history" element={<HistoryPage />} />
+        <Route path="/change-password" element={<ChangePasswordPage />} />
+        <Route path="/artists" element={<ArtistsPage />} />
+        <Route path="/artist/:name" element={<ArtistDetailPage />} />
         <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminDashboardPage /></ProtectedRoute>} />
         <Route path="/admin/users" element={<ProtectedRoute requireAdmin><AdminUsersPage /></ProtectedRoute>} />
         <Route path="/admin/media" element={<ProtectedRoute requireAdmin><AdminMediaPage /></ProtectedRoute>} />

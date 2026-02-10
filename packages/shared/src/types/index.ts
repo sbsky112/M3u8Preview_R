@@ -74,6 +74,7 @@ export interface Media {
   year?: number | null;
   rating?: number | null;
   duration?: number | null;
+  artist?: string | null;
   views: number;
   status: MediaStatus;
   categoryId?: string | null;
@@ -91,6 +92,7 @@ export interface MediaCreateRequest {
   year?: number;
   rating?: number;
   duration?: number;
+  artist?: string;
   categoryId?: string;
   tagIds?: string[];
 }
@@ -103,6 +105,7 @@ export interface MediaQueryParams {
   search?: string;
   categoryId?: string;
   tagId?: string;
+  artist?: string;
   status?: MediaStatus;
   sortBy?: 'title' | 'createdAt' | 'year' | 'rating' | 'views';
   sortOrder?: 'asc' | 'desc';
@@ -209,6 +212,7 @@ export interface ImportItem {
   posterUrl?: string;
   description?: string;
   year?: number;
+  artist?: string;
   categoryName?: string;
   tagNames?: string[];
 }
@@ -266,6 +270,12 @@ export interface PaginatedResponse<T> {
   page: number;
   limit: number;
   totalPages: number;
+}
+
+// ========== Artist ==========
+export interface ArtistInfo {
+  name: string;
+  videoCount: number;
 }
 
 // ========== Dashboard Stats ==========

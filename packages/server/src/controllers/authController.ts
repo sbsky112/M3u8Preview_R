@@ -97,4 +97,18 @@ export const authController = {
       next(error);
     }
   },
+
+  async changePassword(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { oldPassword, newPassword } = req.body;
+      await authService.changePassword(req.user!.userId, oldPassword, newPassword);
+
+      // 清除当前设备的 refreshToken cookie
+      res.clearCookie('refreshToken', { path: '/api/v1/auth' });
+
+      res.json({ success: true, message: '密码修改成功，请重新登录' });
+    } catch (error) {
+      next(error);
+    }
+  },
 };
