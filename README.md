@@ -43,6 +43,7 @@ M3U8 流媒体预览管理平台 — 支持在线播放、收藏管理、播放�
 - **Helmet 安全头** — XSS 防护、内容类型嗅探防护等
 - **CORS 跨域控制** — 可配置的跨域来源
 - **API 限流** — 多层级速率限制，防止滥用
+- **代理接口 HMAC 签名** — 代理请求必须携带有效签名和过期时间，签名由服务端密钥生成，防止代理接口被滥用
 - **生产密钥校验** — 生产环境强制要求修改默认密钥（≥32 字符）
 
 ## 默认账号
@@ -130,6 +131,7 @@ NODE_ENV=development
 DATABASE_URL="file:./data/m3u8preview.db"
 JWT_SECRET="your-jwt-secret"
 JWT_REFRESH_SECRET="your-refresh-secret"
+PROXY_SECRET="your-proxy-secret"
 CORS_ORIGIN=http://localhost:5173
 VITE_API_BASE_URL=http://localhost:3000/api/v1
 ```
@@ -179,9 +181,10 @@ Docker 生产环境采用双容器架构：
 ### 快速启动（生产环境）
 
 ```bash
-# 设置 JWT 密钥（必须修改！密钥长度需 ≥32 字符）
+# 设置密钥（必须修改！密钥长度需 ≥32 字符）
 export JWT_SECRET="your-secure-random-secret-at-least-32-chars"
 export JWT_REFRESH_SECRET="your-secure-random-refresh-secret-at-least-32-chars"
+export PROXY_SECRET="your-secure-random-proxy-secret-at-least-32-chars"
 
 # 构建并启动
 docker compose up -d --build
@@ -213,6 +216,7 @@ docker compose up -d --build
 |------|--------|------|
 | `JWT_SECRET` | `change-me-in-production` | JWT 签名密钥（**生产环境必须修改，≥32 字符**） |
 | `JWT_REFRESH_SECRET` | `change-me-in-production-refresh` | JWT 刷新令牌密钥（**生产环境必须修改，≥32 字符**） |
+| `PROXY_SECRET` | `change-me-proxy-secret-in-production` | 代理签名密钥（**生产环境必须修改，≥32 字符**） |
 | `DOCKER_PORT` | `80` | Nginx 对外端口 |
 | `ADMIN_SEED_PASSWORD` | `Admin123` | 管理员种子账号密码 |
 | `DEMO_SEED_PASSWORD` | `Demo1234` | 演示用户种子账号密码 |
@@ -338,7 +342,7 @@ docker cp m3u8preview-app:/data/m3u8preview.db ./backup.db
 
 ### 生产环境安全配置
 
-1. **JWT 密钥** — `JWT_SECRET` 和 `JWT_REFRESH_SECRET` **必须修改**，长度需 ≥32 字符，且两个密钥**应使用不同的值**
+1. **密钥配置** — `JWT_SECRET`、`JWT_REFRESH_SECRET` 和 `PROXY_SECRET` **必须修改**，长度需 ≥32 字符，且三个密钥**应使用不同的值**
 2. **默认密码** — 建议通过环境变量修改默认的 admin/demo 账号密码，或部署后立即在管理面板中修改
 3. **注册控制** — 根据需要在管理面板中关闭公开注册
 
@@ -367,6 +371,8 @@ docker cp m3u8preview-app:/data/m3u8preview.db ./backup.db
 | 认证路由 | `/api/v1/auth/*` | 15 分钟 | 50 次 | 登录、注册、刷新 token 等共享配额 |
 | 全局 API | `/api/v1/*` | 15 分钟 | 200 次 | 所有 API 路由 |
 | 播放量统计 | `POST /api/v1/media/:id/views` | 15 分钟 | 100 次 | 防止刷播放量 |
+| 代理签名 | `GET /api/v1/proxy/sign` | 15 分钟 | 60 次 | 获取代理签名 URL |
+| 代理请求 | `GET /api/v1/proxy/m3u8` | 15 分钟 | 1500 次 | HLS 代理（含 segment） |
 
 超出限制后会返回 `429 Too Many Requests`，等待窗口期重置即可。
 

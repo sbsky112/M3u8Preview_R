@@ -44,6 +44,9 @@ async function getSignedProxyUrl(m3u8Url: string): Promise<string> {
   const { data } = await api.get<{ success: boolean; proxyUrl: string }>('/proxy/sign', {
     params: { url: m3u8Url },
   });
+  if (!data.success || !data.proxyUrl) {
+    throw new Error('签名响应格式错误');
+  }
   return data.proxyUrl;
 }
 
@@ -64,6 +67,7 @@ export const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>(
     const networkRetryRef = useRef(0);
     const mediaRetryRef = useRef(0);
     const proxyAttemptedRef = useRef(false);
+    const mountedRef = useRef(true);
     const { setPlaying, setCurrentTime, setDuration, setQualities, setQuality, setBuffering, quality, reset } = usePlayerStore();
 
     // 暴露内部 videoRef 给父组件
@@ -81,6 +85,7 @@ export const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>(
         } catch {
           url = media.m3u8Url; // 签名失败回退到直连
         }
+        if (!mountedRef.current) return;
         proxyAttemptedRef.current = true;
       }
 
@@ -130,7 +135,7 @@ export const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>(
                   hls.destroy();
                   networkRetryRef.current = 0;
                   getSignedProxyUrl(media.m3u8Url)
-                    .then(proxyUrl => initHls(proxyUrl))
+                    .then(proxyUrl => { if (mountedRef.current) initHls(proxyUrl); })
                     .catch(() => console.error('获取签名代理 URL 失败'));
                   return;
                 }
@@ -178,7 +183,7 @@ export const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>(
             addProxyDomain(media.m3u8Url);
             video.removeEventListener('error', handleError);
             getSignedProxyUrl(media.m3u8Url)
-              .then(proxyUrl => initHls(proxyUrl))
+              .then(proxyUrl => { if (mountedRef.current) initHls(proxyUrl); })
               .catch(() => console.error('获取签名代理 URL 失败'));
           }
         };
@@ -199,11 +204,13 @@ export const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>(
 
     // Initialize HLS
     useEffect(() => {
+      mountedRef.current = true;
       proxyAttemptedRef.current = false;
       networkRetryRef.current = 0;
       mediaRetryRef.current = 0;
       initHls();
       return () => {
+        mountedRef.current = false;
         if (hlsRef.current) {
           hlsRef.current.destroy();
           hlsRef.current = null;

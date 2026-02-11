@@ -391,8 +391,11 @@ router.get('/m3u8', asyncHandler(async (req, res) => {
   const pathname = targetUrl.pathname.toLowerCase();
   const isM3u8 = pathname.endsWith('.m3u8');
 
-  // 签名已验证通过，无需再做数据库校验（签名由 /sign 端点签发，已完成数据库校验）
-  // 保留 SSRF 防护和扩展名校验（validateProxyUrl 已处理）
+  // m3u8 入口 URL 的数据库校验已在 /sign 端点完成，此处跳过
+  // segment 请求仍需校验域名白名单，防止恶意 m3u8 内容引用任意域名
+  if (!isM3u8) {
+    await validateSegmentDomain(targetUrl);
+  }
 
   // 连接级别超时控制
   const connectController = new AbortController();
