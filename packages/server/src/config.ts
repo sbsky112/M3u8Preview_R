@@ -10,15 +10,19 @@ dotenvConfig({ path: path.resolve(__dirname, '../.env'), override: true });
 
 const nodeEnv = process.env.NODE_ENV || 'development';
 
-// 生产环境强制校验 JWT 密钥配置（强度 + 非默认值）
+// 生产环境强制校验密钥配置（强度 + 非默认值）
 if (nodeEnv === 'production') {
-  const weakDefaults = ['change-me-in-production', 'change-me-in-production-refresh', 'dev-jwt-secret', 'dev-jwt-refresh-secret', 'm3u8preview-docker-default-secret-key-change-me', 'm3u8preview-docker-default-refresh-key-change-me'];
+  const weakDefaults = ['change-me-in-production', 'change-me-in-production-refresh', 'dev-jwt-secret', 'dev-jwt-refresh-secret', 'm3u8preview-docker-default-secret-key-change-me', 'm3u8preview-docker-default-refresh-key-change-me', 'dev-proxy-secret'];
   if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32 || weakDefaults.includes(process.env.JWT_SECRET)) {
     console.error('FATAL: JWT_SECRET must be at least 32 characters and not a known default');
     process.exit(1);
   }
   if (!process.env.JWT_REFRESH_SECRET || process.env.JWT_REFRESH_SECRET.length < 32 || weakDefaults.includes(process.env.JWT_REFRESH_SECRET)) {
     console.error('FATAL: JWT_REFRESH_SECRET must be at least 32 characters and not a known default');
+    process.exit(1);
+  }
+  if (!process.env.PROXY_SECRET || process.env.PROXY_SECRET.length < 32 || weakDefaults.includes(process.env.PROXY_SECRET)) {
+    console.error('FATAL: PROXY_SECRET must be at least 32 characters and not a known default');
     process.exit(1);
   }
 }
@@ -41,6 +45,10 @@ export const config = {
   upload: {
     maxFileSize: 10 * 1024 * 1024, // 10MB
     allowedMimeTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+  },
+  proxy: {
+    secret: process.env.PROXY_SECRET || (nodeEnv === 'production' ? '' : 'dev-proxy-secret'),
+    signatureTtl: 4 * 60 * 60, // 签名有效期 4 小时（秒）
   },
   bcrypt: {
     saltRounds: 12,

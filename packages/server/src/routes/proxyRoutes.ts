@@ -5,7 +5,9 @@ import dns from 'node:dns/promises';
 import rateLimit from 'express-rate-limit';
 import { prisma } from '../lib/prisma.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { authenticate } from '../middleware/auth.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
+import { signProxyUrl, verifyProxySignature } from '../utils/proxySign.js';
 
 const router = Router();
 
@@ -20,6 +22,15 @@ const proxyLimiter = rateLimit({
 });
 
 router.use(proxyLimiter);
+
+// 签名端点独立限流：每 IP 每 15 分钟最多 60 次（正常使用每次播放只需 1 次签名）
+const signLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: '签名请求过于频繁，请稍后再试' },
+});
 
 // ==================== TTL 缓存工具 ====================
 
@@ -224,14 +235,16 @@ function rewriteM3u8Content(content: string, baseUrl: string): string {
       if (trimmed.startsWith('#') && trimmed.includes('URI="')) {
         return line.replace(/URI="([^"]+)"/g, (_match, uri: string) => {
           const absoluteUrl = resolveUrl(uri, baseUrl);
-          return `URI="${proxyPrefix}${encodeURIComponent(absoluteUrl)}"`;
+          const signed = signProxyUrl(absoluteUrl);
+          return `URI="${proxyPrefix}${encodeURIComponent(absoluteUrl)}${signed}"`;
         });
       }
 
       if (trimmed.startsWith('#')) return line;
 
       const absoluteUrl = resolveUrl(trimmed, baseUrl);
-      return `${proxyPrefix}${encodeURIComponent(absoluteUrl)}`;
+      const signed = signProxyUrl(absoluteUrl);
+      return `${proxyPrefix}${encodeURIComponent(absoluteUrl)}${signed}`;
     })
     .join('\n');
 }
@@ -330,6 +343,33 @@ const TOTAL_TIMEOUT_MS = 120_000;
 const CONNECT_TIMEOUT_MS = 15_000;
 
 /**
+ * GET /api/v1/proxy/sign?url=<encoded_url>
+ * 为指定 m3u8 URL 生成带 HMAC 签名的代理入口 URL
+ */
+router.get('/sign', signLimiter, authenticate, asyncHandler(async (req, res) => {
+  const rawUrl = req.query.url as string | undefined;
+  if (!rawUrl) {
+    throw new AppError('缺少 url 参数', 400);
+  }
+
+  const targetUrl = await validateProxyUrl(rawUrl);
+
+  // 签名端点仅处理 m3u8 文件
+  const pathname = targetUrl.pathname.toLowerCase();
+  if (!pathname.endsWith('.m3u8')) {
+    throw new AppError('签名端点仅支持 m3u8 URL', 400);
+  }
+
+  // 数据库校验：确保 URL 对应的媒体记录存在
+  await validateMediaExists(targetUrl);
+
+  const signedParams = signProxyUrl(rawUrl);
+  const proxyUrl = `/api/v1/proxy/m3u8?url=${encodeURIComponent(rawUrl)}${signedParams}`;
+
+  res.json({ success: true, proxyUrl });
+}));
+
+/**
  * GET /api/v1/proxy/m3u8?url=<encoded_url>
  * 代理外部 m3u8/ts 等媒体资源，解决 CORS 问题
  */
@@ -339,17 +379,20 @@ router.get('/m3u8', asyncHandler(async (req, res) => {
     throw new AppError('缺少 url 参数', 400);
   }
 
+  // 签名验证
+  const expires = req.query.expires as string | undefined;
+  const sig = req.query.sig as string | undefined;
+  if (!expires || !sig || !verifyProxySignature(rawUrl, expires, sig)) {
+    throw new AppError('签名无效或已过期', 403);
+  }
+
   const targetUrl = await validateProxyUrl(rawUrl);
 
   const pathname = targetUrl.pathname.toLowerCase();
   const isM3u8 = pathname.endsWith('.m3u8');
 
-  // 数据库校验（带缓存，热路径几乎零开销）
-  if (isM3u8) {
-    await validateMediaExists(targetUrl);
-  } else {
-    await validateSegmentDomain(targetUrl);
-  }
+  // 签名已验证通过，无需再做数据库校验（签名由 /sign 端点签发，已完成数据库校验）
+  // 保留 SSRF 防护和扩展名校验（validateProxyUrl 已处理）
 
   // 连接级别超时控制
   const connectController = new AbortController();

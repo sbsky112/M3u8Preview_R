@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
 import Hls from 'hls.js';
 import { usePlayerStore } from '../../stores/playerStore.js';
+import api from '../../services/api.js';
 import type { Media } from '@m3u8-preview/shared';
 
 const MAX_NETWORK_RETRY = 5;
@@ -38,6 +39,14 @@ function needsProxy(url: string): boolean {
   }
 }
 
+/** 调用签名 API 获取带 HMAC 签名的代理 URL（需登录，通过 api 实例自动携带 token） */
+async function getSignedProxyUrl(m3u8Url: string): Promise<string> {
+  const { data } = await api.get<{ success: boolean; proxyUrl: string }>('/proxy/sign', {
+    params: { url: m3u8Url },
+  });
+  return data.proxyUrl;
+}
+
 interface VideoPlayerProps {
   media: Media;
   startTime?: number;
@@ -60,14 +69,18 @@ export const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>(
     // 暴露内部 videoRef 给父组件
     useImperativeHandle(ref, () => videoRef.current!, []);
 
-    const initHls = useCallback((sourceUrl?: string) => {
+    const initHls = useCallback(async (sourceUrl?: string) => {
       const video = videoRef.current;
       if (!video) return;
 
-      // 如果未指定 sourceUrl 且该域名已知需要代理，直接使用代理 URL
+      // 如果未指定 sourceUrl 且该域名已知需要代理，获取签名代理 URL
       let url = sourceUrl ?? media.m3u8Url;
       if (!sourceUrl && needsProxy(media.m3u8Url)) {
-        url = `/api/v1/proxy/m3u8?url=${encodeURIComponent(media.m3u8Url)}`;
+        try {
+          url = await getSignedProxyUrl(media.m3u8Url);
+        } catch {
+          url = media.m3u8Url; // 签名失败回退到直连
+        }
         proxyAttemptedRef.current = true;
       }
 
@@ -114,10 +127,11 @@ export const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>(
                   proxyAttemptedRef.current = true;
                   console.warn('HLS CORS 错误，回退到代理模式');
                   addProxyDomain(media.m3u8Url);
-                  const proxyUrl = `/api/v1/proxy/m3u8?url=${encodeURIComponent(media.m3u8Url)}`;
                   hls.destroy();
                   networkRetryRef.current = 0;
-                  initHls(proxyUrl);
+                  getSignedProxyUrl(media.m3u8Url)
+                    .then(proxyUrl => initHls(proxyUrl))
+                    .catch(() => console.error('获取签名代理 URL 失败'));
                   return;
                 }
 
@@ -163,8 +177,9 @@ export const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>(
             console.warn('Safari HLS 加载失败，回退到代理模式');
             addProxyDomain(media.m3u8Url);
             video.removeEventListener('error', handleError);
-            const proxyUrl = `/api/v1/proxy/m3u8?url=${encodeURIComponent(media.m3u8Url)}`;
-            initHls(proxyUrl);
+            getSignedProxyUrl(media.m3u8Url)
+              .then(proxyUrl => initHls(proxyUrl))
+              .catch(() => console.error('获取签名代理 URL 失败'));
           }
         };
         video.addEventListener('error', handleError);
