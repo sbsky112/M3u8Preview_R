@@ -6,6 +6,38 @@ import type { Media } from '@m3u8-preview/shared';
 const MAX_NETWORK_RETRY = 5;
 const MAX_MEDIA_RETRY = 3;
 
+/** 记忆已知需要代理的域名，避免每次都先直连失败再回退 */
+const PROXY_DOMAINS_KEY = 'hls-proxy-domains';
+
+function getProxyDomains(): Set<string> {
+  try {
+    const stored = sessionStorage.getItem(PROXY_DOMAINS_KEY);
+    return stored ? new Set(JSON.parse(stored)) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function addProxyDomain(url: string): void {
+  try {
+    const hostname = new URL(url).hostname;
+    const domains = getProxyDomains();
+    domains.add(hostname);
+    sessionStorage.setItem(PROXY_DOMAINS_KEY, JSON.stringify([...domains]));
+  } catch {
+    // sessionStorage 不可用时静默忽略
+  }
+}
+
+function needsProxy(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname;
+    return getProxyDomains().has(hostname);
+  } catch {
+    return false;
+  }
+}
+
 interface VideoPlayerProps {
   media: Media;
   startTime?: number;
@@ -32,7 +64,12 @@ export const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>(
       const video = videoRef.current;
       if (!video) return;
 
-      const url = sourceUrl ?? media.m3u8Url;
+      // 如果未指定 sourceUrl 且该域名已知需要代理，直接使用代理 URL
+      let url = sourceUrl ?? media.m3u8Url;
+      if (!sourceUrl && needsProxy(media.m3u8Url)) {
+        url = `/api/v1/proxy/m3u8?url=${encodeURIComponent(media.m3u8Url)}`;
+        proxyAttemptedRef.current = true;
+      }
 
       // Destroy previous instance
       if (hlsRef.current) {
@@ -76,6 +113,7 @@ export const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>(
                 ) {
                   proxyAttemptedRef.current = true;
                   console.warn('HLS CORS 错误，回退到代理模式');
+                  addProxyDomain(media.m3u8Url);
                   const proxyUrl = `/api/v1/proxy/m3u8?url=${encodeURIComponent(media.m3u8Url)}`;
                   hls.destroy();
                   networkRetryRef.current = 0;
@@ -123,6 +161,7 @@ export const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>(
           if (!proxyAttemptedRef.current && !src.startsWith('/api/')) {
             proxyAttemptedRef.current = true;
             console.warn('Safari HLS 加载失败，回退到代理模式');
+            addProxyDomain(media.m3u8Url);
             video.removeEventListener('error', handleError);
             const proxyUrl = `/api/v1/proxy/m3u8?url=${encodeURIComponent(media.m3u8Url)}`;
             initHls(proxyUrl);

@@ -65,6 +65,7 @@ model Media {
   @@index([categoryId])
   @@index([views])
   @@index([artist])
+  @@index([m3u8Url])
   @@map("media")
 }
 

@@ -37,6 +37,11 @@ const authLimiter = rateLimit({
 
 // Security middleware
 app.use(helmet());
+
+// 代理路由：挂载在 compression/json/cookie 之前，跳过不必要的中间件开销
+// 代理路由处理的是流式二进制转发，不需要 body 解析、cookie、gzip 压缩
+app.use('/api/v1/proxy', cors({ origin: config.cors.origin, credentials: true }), proxyRoutes);
+
 app.use(compression());
 app.use(cors({
   origin: config.cors.origin,
@@ -59,9 +64,6 @@ app.use('/uploads', (_req, res, next) => {
   res.setHeader('Cache-Control', 'public, max-age=86400');
   next();
 }, express.static(uploadsDir));
-
-// 代理路由：挂载在全局限流之前，使用自身独立限流
-app.use('/api/v1/proxy', proxyRoutes);
 
 // Global API rate limiter
 const globalLimiter = rateLimit({

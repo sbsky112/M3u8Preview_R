@@ -9,16 +9,77 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 
 const router = Router();
 
-// 代理端点独立限流：每 IP 每 15 分钟最多 300 次（segment 请求量较大）
+// 代理端点独立限流：每 IP 每 15 分钟最多 1500 次
+// 一个 HLS 视频约 200-500 个 segment，切换清晰度/视频需要更多余量
 const proxyLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 300,
+  max: 1500,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, error: '代理请求过于频繁，请稍后再试' },
 });
 
 router.use(proxyLimiter);
+
+// ==================== TTL 缓存工具 ====================
+
+interface CacheEntry<T> {
+  value: T;
+  expiresAt: number;
+}
+
+/**
+ * 简易 TTL 内存缓存
+ * - 读取时惰性淘汰过期条目
+ * - 定时批量清理防内存泄漏
+ */
+class TtlCache<T> {
+  private readonly store = new Map<string, CacheEntry<T>>();
+  private readonly ttlMs: number;
+  private readonly cleanupTimer: ReturnType<typeof setInterval>;
+
+  constructor(ttlMs: number, cleanupIntervalMs?: number) {
+    this.ttlMs = ttlMs;
+    // 默认每 10 分钟清理一次过期条目
+    this.cleanupTimer = setInterval(() => this.cleanup(), cleanupIntervalMs ?? 600_000);
+    // 不阻止进程退出
+    this.cleanupTimer.unref();
+  }
+
+  get(key: string): T | undefined {
+    const entry = this.store.get(key);
+    if (!entry) return undefined;
+    if (Date.now() > entry.expiresAt) {
+      this.store.delete(key);
+      return undefined;
+    }
+    return entry.value;
+  }
+
+  set(key: string, value: T): void {
+    this.store.set(key, { value, expiresAt: Date.now() + this.ttlMs });
+  }
+
+  private cleanup(): void {
+    const now = Date.now();
+    for (const [key, entry] of this.store) {
+      if (now > entry.expiresAt) {
+        this.store.delete(key);
+      }
+    }
+  }
+}
+
+// DNS 解析结果缓存：5 分钟 TTL（平衡安全性和性能）
+const dnsCache = new TtlCache<true>(5 * 60 * 1000);
+
+// 已验证的域名白名单缓存：10 分钟 TTL
+const domainWhitelistCache = new TtlCache<true>(10 * 60 * 1000);
+
+// 已验证的 m3u8 URL 缓存：10 分钟 TTL
+const mediaUrlCache = new TtlCache<true>(10 * 60 * 1000);
+
+// ==================== 安全校验 ====================
 
 /** 允许代理的文件扩展名白名单 */
 const ALLOWED_EXTENSIONS = new Set([
@@ -28,7 +89,6 @@ const ALLOWED_EXTENSIONS = new Set([
 /** 提取路径最后一段的文件扩展名 */
 function getPathExtension(pathname: string): string {
   const lastSegment = pathname.split('/').pop() || '';
-  // 取查询参数前的部分（URL 类已处理，但保险起见）
   const cleanSegment = lastSegment.split('?')[0];
   const dotIndex = cleanSegment.lastIndexOf('.');
   return dotIndex >= 0 ? cleanSegment.slice(dotIndex).toLowerCase() : '';
@@ -36,7 +96,6 @@ function getPathExtension(pathname: string): string {
 
 /** 判断 IP 地址是否为私有/内网地址 */
 function isPrivateIp(ip: string): boolean {
-  // IPv4
   const v4Parts = ip.split('.').map(Number);
   if (v4Parts.length === 4 && v4Parts.every(p => p >= 0 && p <= 255)) {
     return (
@@ -54,10 +113,8 @@ function isPrivateIp(ip: string): boolean {
 
 /** SSRF 防护：在 hostname 字符串级别做初步检查 */
 function isPrivateHostname(hostname: string): boolean {
-  // 移除 IPv6 方括号
   const clean = hostname.replace(/^\[|\]$/g, '');
 
-  // 常见内网主机名
   if (
     clean === 'localhost' ||
     clean === '127.0.0.1' ||
@@ -68,17 +125,14 @@ function isPrivateHostname(hostname: string): boolean {
     return true;
   }
 
-  // 内网域名后缀
   if (clean.endsWith('.local') || clean.endsWith('.internal') || clean.endsWith('.localhost')) {
     return true;
   }
 
-  // IPv4 字符串级别检查
   if (isPrivateIp(clean)) {
     return true;
   }
 
-  // IPv6 映射的 IPv4（::ffff:x.x.x.x）
   const v4MappedMatch = clean.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i);
   if (v4MappedMatch && isPrivateIp(v4MappedMatch[1])) {
     return true;
@@ -87,8 +141,13 @@ function isPrivateHostname(hostname: string): boolean {
   return false;
 }
 
-/** SSRF 防护：DNS 解析后校验实际 IP 地址（防 DNS Rebinding） */
+/** SSRF 防护：DNS 解析后校验实际 IP 地址（带缓存） */
 async function validateResolvedIp(hostname: string): Promise<void> {
+  // 命中缓存则跳过 DNS 解析
+  if (dnsCache.get(hostname) !== undefined) {
+    return;
+  }
+
   try {
     const addresses = await dns.resolve4(hostname);
     for (const addr of addresses) {
@@ -97,10 +156,7 @@ async function validateResolvedIp(hostname: string): Promise<void> {
       }
     }
   } catch (error) {
-    // 如果是我们主动抛出的 AppError，继续向上抛
     if (error instanceof AppError) throw error;
-    // DNS 解析失败（可能是纯 IPv6 域名等），跳过 IPv4 校验
-    // 尝试 IPv6 解析
     try {
       const addresses = await dns.resolve6(hostname);
       for (const addr of addresses) {
@@ -108,7 +164,6 @@ async function validateResolvedIp(hostname: string): Promise<void> {
         if (clean === '::1' || clean.startsWith('fe80:') || clean.startsWith('fc') || clean.startsWith('fd')) {
           throw new AppError('不允许代理内网地址', 403);
         }
-        // 检查 IPv6 映射的 IPv4
         const v4Match = clean.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i);
         if (v4Match && isPrivateIp(v4Match[1])) {
           throw new AppError('不允许代理内网地址', 403);
@@ -116,9 +171,11 @@ async function validateResolvedIp(hostname: string): Promise<void> {
       }
     } catch (err) {
       if (err instanceof AppError) throw err;
-      // DNS 完全解析失败，让后续 fetch 自行处理
     }
   }
+
+  // DNS 校验通过，缓存结果
+  dnsCache.set(hostname, true);
 }
 
 /** 校验代理 URL 合法性 */
@@ -134,15 +191,12 @@ async function validateProxyUrl(rawUrl: string): Promise<URL> {
     throw new AppError('仅支持 HTTP/HTTPS 协议', 400);
   }
 
-  // 字符串级别 SSRF 检查
   if (isPrivateHostname(parsed.hostname)) {
     throw new AppError('不允许代理内网地址', 403);
   }
 
-  // DNS 解析级别 SSRF 检查（防 DNS Rebinding）
   await validateResolvedIp(parsed.hostname);
 
-  // 校验扩展名：提取路径最后一段的扩展名
   const ext = getPathExtension(parsed.pathname);
   if (!ext || !ALLOWED_EXTENSIONS.has(ext)) {
     throw new AppError('不支持代理此类型的资源', 400);
@@ -151,9 +205,10 @@ async function validateProxyUrl(rawUrl: string): Promise<URL> {
   return parsed;
 }
 
+// ==================== m3u8 内容重写 ====================
+
 /**
  * 重写 m3u8 playlist 中的相对/绝对路径为代理 URL
- * 将 segment 路径改写为通过 /api/v1/proxy/m3u8?url=<encoded> 访问
  */
 function rewriteM3u8Content(content: string, baseUrl: string): string {
   const lines = content.split('\n');
@@ -163,10 +218,9 @@ function rewriteM3u8Content(content: string, baseUrl: string): string {
     .map(line => {
       const trimmed = line.trim();
 
-      // 跳过空行
       if (trimmed === '') return line;
 
-      // 处理含 URI="..." 的标签（如 #EXT-X-MAP、#EXT-X-KEY、#EXT-X-I-FRAME-STREAM-INF 等）
+      // 处理含 URI="..." 的标签
       if (trimmed.startsWith('#') && trimmed.includes('URI="')) {
         return line.replace(/URI="([^"]+)"/g, (_match, uri: string) => {
           const absoluteUrl = resolveUrl(uri, baseUrl);
@@ -174,10 +228,8 @@ function rewriteM3u8Content(content: string, baseUrl: string): string {
         });
       }
 
-      // 跳过其它纯注释行
       if (trimmed.startsWith('#')) return line;
 
-      // segment 行：将路径解析为绝对 URL 并改写
       const absoluteUrl = resolveUrl(trimmed, baseUrl);
       return `${proxyPrefix}${encodeURIComponent(absoluteUrl)}`;
     })
@@ -193,23 +245,32 @@ function resolveUrl(url: string, baseUrl: string): string {
   try {
     return new URL(url, baseUrl).href;
   } catch {
-    // URL 解析失败，返回原值（播放器会收到 404）
     console.warn(`[proxy] 无法解析相对 URL: ${url}, base: ${baseUrl}`);
     return url;
   }
 }
 
+// ==================== 数据库校验（带缓存） ====================
+
 /** 校验数据库中是否存在该 m3u8Url 对应的媒体记录 */
 async function validateMediaExists(targetUrl: URL): Promise<void> {
   const fullUrl = targetUrl.href;
-  // 优先精确匹配完整 URL
+
+  // 命中缓存直接返回
+  if (mediaUrlCache.get(fullUrl) !== undefined) {
+    return;
+  }
+
   const exactMatch = await prisma.media.findFirst({
     where: { m3u8Url: fullUrl, status: 'ACTIVE' },
     select: { id: true },
   });
-  if (exactMatch) return;
+  if (exactMatch) {
+    mediaUrlCache.set(fullUrl, true);
+    return;
+  }
 
-  // 回退：去掉查询参数后匹配（部分 CDN 会在 URL 后追加鉴权参数）
+  // 回退：去掉查询参数后匹配
   const urlWithoutSearch = `${targetUrl.protocol}//${targetUrl.host}${targetUrl.pathname}`;
   const prefixMatch = await prisma.media.findFirst({
     where: {
@@ -218,7 +279,10 @@ async function validateMediaExists(targetUrl: URL): Promise<void> {
     },
     select: { id: true },
   });
-  if (prefixMatch) return;
+  if (prefixMatch) {
+    mediaUrlCache.set(fullUrl, true);
+    return;
+  }
 
   throw new AppError('未找到对应的媒体记录，拒绝代理', 403);
 }
@@ -226,6 +290,12 @@ async function validateMediaExists(targetUrl: URL): Promise<void> {
 /** 校验 segment 请求的域名是否存在于数据库的某条 m3u8Url 中 */
 async function validateSegmentDomain(targetUrl: URL): Promise<void> {
   const hostPrefix = `${targetUrl.protocol}//${targetUrl.host}`;
+
+  // 命中缓存直接返回
+  if (domainWhitelistCache.get(hostPrefix) !== undefined) {
+    return;
+  }
+
   const domainMatch = await prisma.media.findFirst({
     where: {
       m3u8Url: { startsWith: hostPrefix },
@@ -236,6 +306,9 @@ async function validateSegmentDomain(targetUrl: URL): Promise<void> {
   if (!domainMatch) {
     throw new AppError('未找到对应的媒体记录，拒绝代理', 403);
   }
+
+  // 域名校验通过，缓存结果
+  domainWhitelistCache.set(hostPrefix, true);
 }
 
 /** 判断 content-type 是否为 m3u8 类型 */
@@ -248,6 +321,8 @@ function isM3u8ContentType(contentType: string | null): boolean {
     lower === 'audio/mpegurl'
   );
 }
+
+// ==================== 路由处理器 ====================
 
 /** 整体请求超时时间（含流式传输） */
 const TOTAL_TIMEOUT_MS = 120_000;
@@ -269,7 +344,7 @@ router.get('/m3u8', asyncHandler(async (req, res) => {
   const pathname = targetUrl.pathname.toLowerCase();
   const isM3u8 = pathname.endsWith('.m3u8');
 
-  // 数据库校验：m3u8 精确匹配，segment 校验域名
+  // 数据库校验（带缓存，热路径几乎零开销）
   if (isM3u8) {
     await validateMediaExists(targetUrl);
   } else {
@@ -284,7 +359,6 @@ router.get('/m3u8', asyncHandler(async (req, res) => {
   const totalController = new AbortController();
   const totalTimeout = setTimeout(() => totalController.abort(), TOTAL_TIMEOUT_MS);
 
-  // 任一超时都触发中止
   connectController.signal.addEventListener('abort', () => totalController.abort());
 
   try {
@@ -326,7 +400,7 @@ router.get('/m3u8', asyncHandler(async (req, res) => {
       res.status(206);
     }
 
-    // 缓存策略：m3u8 不缓存，segment 缓存
+    // 缓存策略
     if (isM3u8) {
       res.setHeader('Cache-Control', 'no-cache');
     } else {
@@ -348,7 +422,6 @@ router.get('/m3u8', asyncHandler(async (req, res) => {
     if (response.body) {
       const nodeStream = Readable.fromWeb(response.body as import('stream/web').ReadableStream);
 
-      // 客户端断开或总超时时销毁上游流
       req.on('close', () => {
         nodeStream.destroy();
         clearTimeout(totalTimeout);
