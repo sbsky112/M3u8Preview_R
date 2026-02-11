@@ -19,6 +19,7 @@ import uploadRoutes from './routes/uploadRoutes.js';
 import playlistRoutes from './routes/playlistRoutes.js';
 import importRoutes from './routes/importRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
+import proxyRoutes from './routes/proxyRoutes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const uploadsDir = path.resolve(__dirname, '../uploads');
@@ -58,6 +59,9 @@ app.use('/uploads', (_req, res, next) => {
   res.setHeader('Cache-Control', 'public, max-age=86400');
   next();
 }, express.static(uploadsDir));
+
+// 代理路由：挂载在全局限流之前，使用自身独立限流
+app.use('/api/v1/proxy', proxyRoutes);
 
 // Global API rate limiter
 const globalLimiter = rateLimit({

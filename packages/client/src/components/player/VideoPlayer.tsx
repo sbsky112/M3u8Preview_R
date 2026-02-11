@@ -22,14 +22,17 @@ export const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>(
     const containerRef = useRef<HTMLDivElement>(null);
     const networkRetryRef = useRef(0);
     const mediaRetryRef = useRef(0);
+    const proxyAttemptedRef = useRef(false);
     const { setPlaying, setCurrentTime, setDuration, setQualities, setQuality, setBuffering, quality, reset } = usePlayerStore();
 
     // 暴露内部 videoRef 给父组件
     useImperativeHandle(ref, () => videoRef.current!, []);
 
-    const initHls = useCallback(() => {
+    const initHls = useCallback((sourceUrl?: string) => {
       const video = videoRef.current;
       if (!video) return;
+
+      const url = sourceUrl ?? media.m3u8Url;
 
       // Destroy previous instance
       if (hlsRef.current) {
@@ -44,7 +47,7 @@ export const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>(
           maxMaxBufferLength: 60,
         });
 
-        hls.loadSource(media.m3u8Url);
+        hls.loadSource(url);
         hls.attachMedia(video);
 
         hls.on(Hls.Events.MANIFEST_PARSED, (_event, data) => {
@@ -66,6 +69,20 @@ export const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>(
           if (data.fatal) {
             switch (data.type) {
               case Hls.ErrorTypes.NETWORK_ERROR:
+                // CORS 失败时 response.code 为 0，尝试回退到代理
+                if (
+                  !proxyAttemptedRef.current &&
+                  data.response && data.response.code === 0
+                ) {
+                  proxyAttemptedRef.current = true;
+                  console.warn('HLS CORS 错误，回退到代理模式');
+                  const proxyUrl = `/api/v1/proxy/m3u8?url=${encodeURIComponent(media.m3u8Url)}`;
+                  hls.destroy();
+                  networkRetryRef.current = 0;
+                  initHls(proxyUrl);
+                  return;
+                }
+
                 if (networkRetryRef.current < MAX_NETWORK_RETRY) {
                   networkRetryRef.current++;
                   const delay = Math.min(1000 * Math.pow(2, networkRetryRef.current - 1), 16000);
@@ -97,8 +114,22 @@ export const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>(
         hlsRef.current = hls;
       } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
         // Safari native HLS
-        video.src = media.m3u8Url;
+        const src = sourceUrl ?? media.m3u8Url;
+        video.src = src;
         video.currentTime = startTime;
+
+        // Safari CORS 回退：加载失败时切换到代理 URL
+        const handleError = () => {
+          if (!proxyAttemptedRef.current && !src.startsWith('/api/')) {
+            proxyAttemptedRef.current = true;
+            console.warn('Safari HLS 加载失败，回退到代理模式');
+            video.removeEventListener('error', handleError);
+            const proxyUrl = `/api/v1/proxy/m3u8?url=${encodeURIComponent(media.m3u8Url)}`;
+            initHls(proxyUrl);
+          }
+        };
+        video.addEventListener('error', handleError);
+
         if (autoPlay) {
           video.play().catch(() => {});
         }
@@ -114,6 +145,9 @@ export const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>(
 
     // Initialize HLS
     useEffect(() => {
+      proxyAttemptedRef.current = false;
+      networkRetryRef.current = 0;
+      mediaRetryRef.current = 0;
       initHls();
       return () => {
         if (hlsRef.current) {
