@@ -24,6 +24,7 @@ import { ChangePasswordPage } from './pages/ChangePasswordPage.js';
 import { ArtistDetailPage } from './pages/ArtistDetailPage.js';
 import { ArtistsPage } from './pages/ArtistsPage.js';
 import { CategoriesPage } from './pages/CategoriesPage.js';
+import { CategoryDetailPage } from './pages/CategoryDetailPage.js';
 import { AdminCategoriesPage } from './pages/AdminCategoriesPage.js';
 import './index.css';
 
@@ -72,6 +73,7 @@ function AppRoutes() {
         <Route path="/artists" element={<ArtistsPage />} />
         <Route path="/artist/:name" element={<ArtistDetailPage />} />
         <Route path="/categories" element={<CategoriesPage />} />
+        <Route path="/categories/:id" element={<CategoryDetailPage />} />
         <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminDashboardPage /></ProtectedRoute>} />
         <Route path="/admin/users" element={<ProtectedRoute requireAdmin><AdminUsersPage /></ProtectedRoute>} />
         <Route path="/admin/media" element={<ProtectedRoute requireAdmin><AdminMediaPage /></ProtectedRoute>} />
