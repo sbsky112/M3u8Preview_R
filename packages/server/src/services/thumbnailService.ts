@@ -80,6 +80,7 @@ export async function generateThumbnail(mediaId: string, m3u8Url: string): Promi
     // 1. 用 ffprobe 获取视频时长
     const { stdout: probeOut } = await execFile(ffprobePath, [
       '-user_agent', UA,
+      '-allowed_extensions', 'ALL',
       '-v', 'error',
       '-show_entries', 'format=duration',
       '-of', 'default=noprint_wrappers=1:nokey=1',
@@ -99,6 +100,7 @@ export async function generateThumbnail(mediaId: string, m3u8Url: string): Promi
     // 3. ffmpeg 提取帧（-ss 在 -i 之前，启用快速 seek 直接跳转最近关键帧）
     await execFile(ffmpegPath, [
       '-user_agent', UA,
+      '-allowed_extensions', 'ALL',
       '-ss', seekTime.toFixed(2),
       '-i', m3u8Url,
       '-vframes', '1',
