@@ -36,7 +36,19 @@ const authLimiter = rateLimit({
 });
 
 // Security middleware
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
+      mediaSrc: ["'self'", 'blob:', 'https:'],
+      connectSrc: ["'self'", 'https:'],
+      fontSrc: ["'self'"],
+    },
+  },
+}));
 
 // 代理路由：挂载在 compression/json/cookie 之前，跳过不必要的中间件开销
 // 代理路由处理的是流式二进制转发，不需要 body 解析、cookie、gzip 压缩
