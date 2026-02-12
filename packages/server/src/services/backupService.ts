@@ -211,11 +211,14 @@ export const backupService = {
     );
 
     if (uploadEntries.length > 0) {
-      // 清空 uploads 目录内容
+      // 清空 uploads 目录内容（仅删除子项，保留目录本身，避免 Docker 卷挂载点无法删除的问题）
       if (fs.existsSync(uploadsDir)) {
-        fs.rmSync(uploadsDir, { recursive: true, force: true });
+        for (const child of fs.readdirSync(uploadsDir)) {
+          fs.rmSync(path.join(uploadsDir, child), { recursive: true, force: true });
+        }
+      } else {
+        fs.mkdirSync(uploadsDir, { recursive: true });
       }
-      fs.mkdirSync(uploadsDir, { recursive: true });
 
       for (const entry of uploadEntries) {
         const targetPath = path.resolve(uploadsDir, '..', entry.entryName);
