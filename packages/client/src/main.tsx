@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from './components/ErrorBoundary.js';
 import { useAuth } from './hooks/useAuth.js';
@@ -27,6 +27,7 @@ import { CategoriesPage } from './pages/CategoriesPage.js';
 import { CategoryDetailPage } from './pages/CategoryDetailPage.js';
 import { AdminCategoriesPage } from './pages/AdminCategoriesPage.js';
 import './index.css';
+import { clearPendingScrollRestore, getPendingScrollRestore, getSavedRouteScrollPosition, buildRouteKey } from './lib/utils.js';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -37,6 +38,62 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+function PendingScrollRestore() {
+  const location = useLocation();
+  const retryCountRef = useRef(0);
+
+  useEffect(() => {
+    const currentRouteKey = buildRouteKey(location.pathname, location.search);
+    const pendingRoute = getPendingScrollRestore();
+
+    if (pendingRoute !== currentRouteKey) {
+      retryCountRef.current = 0;
+      return;
+    }
+
+    const savedScroll = getSavedRouteScrollPosition(currentRouteKey);
+    if (savedScroll === null) {
+      if (getPendingScrollRestore() === currentRouteKey) {
+        clearPendingScrollRestore();
+      }
+      retryCountRef.current = 0;
+      return;
+    }
+
+    let cancelled = false;
+
+    const attemptRestore = () => {
+      if (cancelled) {
+        return;
+      }
+
+      window.scrollTo({ top: savedScroll, behavior: 'smooth' });
+      const maxScrollableY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+      const reachedTarget = savedScroll <= maxScrollableY || Math.abs(window.scrollY - savedScroll) <= 4;
+
+      if (reachedTarget || retryCountRef.current >= 10) {
+        // 仅当 pending 仍是当前路由时才清除，避免误清其他组件设置的新值
+        if (getPendingScrollRestore() === currentRouteKey) {
+          clearPendingScrollRestore();
+        }
+        retryCountRef.current = 0;
+        return;
+      }
+
+      retryCountRef.current += 1;
+      window.setTimeout(attemptRestore, 150);
+    };
+
+    window.requestAnimationFrame(attemptRestore);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [location.pathname, location.search]);
+
+  return null;
+}
 
 function AppRoutes() {
   const { isLoading } = useAuth();
@@ -90,6 +147,7 @@ function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
+          <PendingScrollRestore />
           <AppRoutes />
         </BrowserRouter>
       </QueryClientProvider>

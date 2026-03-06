@@ -1,4 +1,4 @@
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Film, Play, Plus, Star, RotateCcw, Check, User, RefreshCw } from 'lucide-react';
@@ -10,17 +10,28 @@ import { AddToPlaylistModal } from '../components/playlist/AddToPlaylistModal.js
 import { ScrollRow } from '../components/ui/ScrollRow.js';
 import { useVideoThumbnail } from '../hooks/useVideoThumbnail.js';
 import { useProgressMap } from '../hooks/useProgressMap.js';
-import { formatDate, formatDuration } from '../lib/utils.js';
+import { formatDate, formatDuration, buildRouteKey, saveCurrentRouteScrollPosition, setPendingScrollRestore } from '../lib/utils.js';
 import { useAuth } from '../hooks/useAuth.js';
 
 export function MediaDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
   const [showAddToPlaylist, setShowAddToPlaylist] = useState(false);
   const viewIncrementedRef = useRef(false);
+
+  const currentRouteKey = buildRouteKey(location.pathname, location.search);
+  const fromRouteKey = (location.state as { fromRouteKey?: string } | null)?.fromRouteKey;
+
+  // 挂载时设置待恢复的滚动路由，确保返回来源页时恢复滚动位置
+  useEffect(() => {
+    if (fromRouteKey) {
+      setPendingScrollRestore(fromRouteKey);
+    }
+  }, [fromRouteKey]);
 
   const { data: media, isLoading, error } = useQuery({
     queryKey: ['media', id],
@@ -68,7 +79,10 @@ export function MediaDetailPage() {
   }, [id]);
 
   function handlePlay() {
-    navigate(`/play/${media!.id}`);
+    saveCurrentRouteScrollPosition(currentRouteKey);
+    navigate(`/play/${media!.id}`, {
+      state: { restoreRouteKey: currentRouteKey },
+    });
   }
 
   const thumbnailMutation = useMutation({

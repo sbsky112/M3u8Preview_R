@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect, useRef, useCallback, type PointerEvent as ReactPointerEvent } from 'react';
 import { ArrowLeft } from 'lucide-react';
@@ -8,12 +8,14 @@ import { VideoPlayer } from '../components/player/VideoPlayer.js';
 import { PlayerControls } from '../components/player/PlayerControls.js';
 import { QualitySelector } from '../components/media/QualitySelector.js';
 import { useWatchProgress } from '../hooks/useWatchProgress.js';
+import { setPendingScrollRestore } from '../lib/utils.js';
 
 const OVERLAY_TIMEOUT = 3000;
 
 export function PlaybackPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const [overlayVisible, setOverlayVisible] = useState(true);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout>>();
@@ -35,6 +37,15 @@ export function PlaybackPage() {
   });
 
   const { handleTimeUpdate } = useWatchProgress({ mediaId: id ?? '' });
+
+  const restoreRouteKey = (location.state as { restoreRouteKey?: string } | null)?.restoreRouteKey;
+
+  const restorePreviousPage = useCallback(() => {
+    if (restoreRouteKey) {
+      setPendingScrollRestore(restoreRouteKey);
+    }
+    navigate(-1);
+  }, [navigate, restoreRouteKey]);
 
   // 重置自动隐藏定时器
   const resetHideTimer = useCallback(() => {
@@ -145,7 +156,7 @@ export function PlaybackPage() {
         if (document.fullscreenElement) {
           document.exitFullscreen();
         } else {
-          navigate(-1);
+          restorePreviousPage();
         }
       } else if (e.key === 'f') {
         e.preventDefault();
@@ -164,10 +175,10 @@ export function PlaybackPage() {
     }
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [navigate]);
+  }, [restorePreviousPage]);
 
   function handleBack() {
-    navigate(-1);
+    restorePreviousPage();
   }
 
   if (isLoading) {

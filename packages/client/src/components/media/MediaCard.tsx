@@ -1,6 +1,7 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Film, Play, Star, Check } from 'lucide-react';
 import { useVideoThumbnail } from '../../hooks/useVideoThumbnail.js';
+import { buildRouteKey, saveCurrentRouteScrollPosition } from '../../lib/utils.js';
 import type { Media } from '@m3u8-preview/shared';
 
 interface MediaCardProps {
@@ -14,10 +15,19 @@ interface MediaCardProps {
 
 export function MediaCard({ media, variant = 'portrait', showProgress = false, progress = 0, progressText, completed }: MediaCardProps) {
   const thumbnail = useVideoThumbnail(media.id, media.m3u8Url, media.posterUrl);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  function handleClick(e: React.MouseEvent) {
+    e.preventDefault();
+    const routeKey = buildRouteKey(location.pathname, location.search);
+    saveCurrentRouteScrollPosition(routeKey);
+    navigate(`/media/${media.id}`, { state: { fromRouteKey: routeKey } });
+  }
 
   if (variant === 'landscape') {
     return (
-      <Link to={`/media/${media.id}`} className="group block flex-shrink-0">
+      <Link to={`/media/${media.id}`} onClick={handleClick} className="group block flex-shrink-0">
         {/* Landscape poster */}
         <div className="aspect-video bg-emby-bg-card rounded-md overflow-hidden relative">
           {thumbnail ? (
@@ -61,7 +71,7 @@ export function MediaCard({ media, variant = 'portrait', showProgress = false, p
 
   // Portrait mode (default)
   return (
-    <Link to={`/media/${media.id}`} className="group block">
+    <Link to={`/media/${media.id}`} onClick={handleClick} className="group block">
       {/* Portrait poster */}
       <div className="aspect-[2/3] bg-emby-bg-card rounded-md overflow-hidden relative">
         {thumbnail ? (
