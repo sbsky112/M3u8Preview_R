@@ -398,7 +398,7 @@ router.get('/m3u8', asyncHandler(async (req, res) => {
     await validateSegmentDomain(targetUrl);
   }
 
-  const shouldSendMissavReferer = targetUrl.hostname === 'missav.ws' || targetUrl.hostname.endsWith('.missav.ws');
+  const shouldSendMissavReferer = targetUrl.hostname === 'surrit.com' || targetUrl.hostname.endsWith('.surrit.com');
 
   // 连接级别超时控制
   const connectController = new AbortController();
