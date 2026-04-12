@@ -35,6 +35,8 @@ router.get('/thumbnails/status', adminController.getThumbnailStatus);
 // Poster migration (外部封面下载到本地)
 router.post('/posters/migrate', adminController.migratePosterImages);
 router.get('/posters/status', adminController.getPosterMigrationStatus);
+router.get('/posters/stats', adminController.getPosterStats);
+router.post('/posters/retry', adminController.retryFailedPosters);
 
 // Backup management
 router.get('/backup/export', backupController.exportBackup);

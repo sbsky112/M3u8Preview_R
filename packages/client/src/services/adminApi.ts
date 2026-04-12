@@ -85,4 +85,35 @@ export const adminApi = {
     const { data } = await api.put<ApiResponse<BatchOperationResult>>('/admin/media/batch-category', { ids, categoryId });
     return data.data!;
   },
+
+  // ─── 封面管理 ─────────────────────────────────────
+
+  async getPosterStats(): Promise<{ total: number; external: number; local: number; missing: number; totalSizeBytes: number }> {
+    const { data } = await api.get<ApiResponse<{ total: number; external: number; local: number; missing: number; totalSizeBytes: number }>>('/admin/posters/stats');
+    return data.data!;
+  },
+
+  async migratePosterImages(): Promise<{ enqueuedCount: number }> {
+    const { data } = await api.post<ApiResponse<{ enqueuedCount: number }>>('/admin/posters/migrate');
+    return data.data!;
+  },
+
+  async getPosterMigrationStatus() {
+    const { data } = await api.get<ApiResponse<{
+      pending: number;
+      active: number;
+      completed: number;
+      failed: number;
+      skipped: number;
+      total: number;
+      concurrency: number;
+      running: boolean;
+    }>>('/admin/posters/status');
+    return data.data!;
+  },
+
+  async retryFailedPosters(): Promise<{ enqueuedCount: number }> {
+    const { data } = await api.post<ApiResponse<{ enqueuedCount: number }>>('/admin/posters/retry');
+    return data.data!;
+  },
 };

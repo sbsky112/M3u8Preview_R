@@ -3,7 +3,7 @@ import { adminService } from '../services/adminService.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { safePagination } from '../utils/pagination.js';
 import { generateAllMissing, thumbnailQueue } from '../services/thumbnailService.js';
-import { migrateExternalPosters, posterMigrationQueue } from '../services/posterDownloadService.js';
+import { migrateExternalPosters, posterMigrationQueue, getPosterStats } from '../services/posterDownloadService.js';
 import { invalidateRateLimitSettingCache } from '../middleware/conditionalRateLimit.js';
 
 type Params = { id: string };
@@ -143,5 +143,21 @@ export const adminController = {
   getPosterMigrationStatus: asyncHandler(async (_req: Request, res: Response) => {
     const status = posterMigrationQueue.getStatus();
     res.json({ success: true, data: status });
+  }),
+
+  /**
+   * GET /admin/posters/stats - 查询封面统计信息
+   */
+  getPosterStats: asyncHandler(async (_req: Request, res: Response) => {
+    const stats = await getPosterStats();
+    res.json({ success: true, data: stats });
+  }),
+
+  /**
+   * POST /admin/posters/retry - 重试失败的封面迁移
+   */
+  retryFailedPosters: asyncHandler(async (_req: Request, res: Response) => {
+    const count = await posterMigrationQueue.retryFailed();
+    res.json({ success: true, data: { enqueuedCount: count } });
   }),
 };

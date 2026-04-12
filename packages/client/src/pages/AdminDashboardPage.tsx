@@ -5,6 +5,7 @@ import { Film, Users, FolderOpen, Play, Settings, Download, Shield } from 'lucid
 import { adminApi } from '../services/adminApi.js';
 import { MediaThumbnail } from '../components/media/MediaThumbnail.js';
 import { BackupSection } from '../components/admin/BackupSection.js';
+import { PosterSection } from '../components/admin/PosterSection.js';
 
 export function AdminDashboardPage() {
   const queryClient = useQueryClient();
@@ -169,6 +170,9 @@ export function AdminDashboardPage() {
           <p className="text-red-400 text-xs mt-2">{settingError}</p>
         )}
       </div>
+
+      {/* Poster Management */}
+      <PosterSection />
 
       {/* Backup */}
       <BackupSection />

@@ -15,6 +15,10 @@ const POSTERS_DIR = path.resolve(__dirname, '../../uploads/posters');
 const ALLOWED_IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const DOWNLOAD_TIMEOUT_MS = 15_000;
+/** 下载失败后最大重试次数 */
+const MAX_RETRY_ATTEMPTS = 3;
+/** 重试基础延迟（毫秒），实际延迟 = BASE * 2^attempt（2s → 4s → 8s） */
+const RETRY_BASE_DELAY_MS = 2_000;
 /** 每分钟最多下载封面数（出站请求速率限制） */
 const RATE_LIMIT_MAX = 100;
 const RATE_LIMIT_WINDOW_MS = 60_000;
@@ -113,93 +117,127 @@ async function ensureDir() {
   await fsMkdir(POSTERS_DIR, { recursive: true });
 }
 
+/** 判断错误是否值得重试（网络错误、超时、5xx） */
+function isRetryableError(err: unknown, httpStatus?: number): boolean {
+  if (httpStatus && httpStatus >= 400 && httpStatus < 500) return false;
+  if (httpStatus && httpStatus >= 500) return true;
+  if (err instanceof Error) {
+    const msg = err.message.toLowerCase();
+    if (msg.includes('abort') || msg.includes('timeout')) return true;
+    if (msg.includes('econnreset') || msg.includes('econnrefused')) return true;
+    if (msg.includes('enotfound') || msg.includes('etimedout')) return true;
+    if (msg.includes('fetch failed') || msg.includes('network')) return true;
+  }
+  return true;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /**
- * 下载外部图片到 uploads/posters/ 目录
+ * 单次尝试下载外部图片（不含重试逻辑）
+ * @returns 本地路径，或抛出错误/返回 null（不可重试的明确失败）
+ */
+async function downloadPosterOnce(externalUrl: string): Promise<string | null> {
+  const parsed = new URL(externalUrl);
+
+  let ext = getPathExtension(parsed.pathname);
+  const referer = getRefererForHost(parsed.hostname);
+
+  await ensureDir();
+  await downloadRateLimiter.acquire();
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(parsed.href, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': UA,
+        Accept: 'image/*',
+        ...(referer ? { Referer: referer } : {}),
+      },
+      redirect: 'follow',
+    });
+
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      if (response.status >= 500) {
+        throw Object.assign(new Error(`HTTP ${response.status}`), { httpStatus: response.status });
+      }
+      console.warn(`[PosterDownload] HTTP ${response.status} for ${externalUrl}`);
+      return null;
+    }
+
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.startsWith('image/')) {
+      console.warn(`[PosterDownload] 非图片类型 ${contentType} for ${externalUrl}`);
+      return null;
+    }
+
+    if (!ext || !ALLOWED_IMAGE_EXTENSIONS.has(ext)) {
+      ext = extFromContentType(contentType) || '.jpg';
+    }
+
+    const contentLength = parseInt(response.headers.get('content-length') || '0', 10);
+    if (contentLength > MAX_FILE_SIZE) {
+      console.warn(`[PosterDownload] 文件过大 ${contentLength} bytes for ${externalUrl}`);
+      return null;
+    }
+
+    const filename = `${randomUUID()}${ext}`;
+    const outputPath = path.join(POSTERS_DIR, filename);
+    const localUrl = `/uploads/posters/${filename}`;
+
+    if (!response.body) {
+      return null;
+    }
+
+    const nodeStream = Readable.fromWeb(response.body as import('stream/web').ReadableStream);
+    const fileStream = fs.createWriteStream(outputPath);
+
+    let bytesWritten = 0;
+    nodeStream.on('data', (chunk: Buffer) => {
+      bytesWritten += chunk.length;
+      if (bytesWritten > MAX_FILE_SIZE) {
+        nodeStream.destroy(new Error('文件大小超过限制'));
+      }
+    });
+
+    await pipeline(nodeStream, fileStream);
+
+    console.log(`[PosterDownload] 已下载 ${externalUrl} -> ${localUrl} (${bytesWritten} bytes)`);
+    return localUrl;
+  } catch (err) {
+    clearTimeout(timeout);
+    throw err;
+  }
+}
+
+/**
+ * 下载外部图片到 uploads/posters/ 目录，失败后自动重试（最多 3 次，指数退避）
  * @returns 本地路径如 /uploads/posters/{uuid}.jpg，下载失败返回 null
  */
 export async function downloadPoster(externalUrl: string): Promise<string | null> {
-  try {
-    const parsed = new URL(externalUrl);
-
-    // 从 URL 路径推断扩展名
-    let ext = getPathExtension(parsed.pathname);
-    const referer = getRefererForHost(parsed.hostname);
-
-    await ensureDir();
-
-    // 等待速率限制令牌（每分钟最多 100 次出站请求）
-    await downloadRateLimiter.acquire();
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
-
+  for (let attempt = 0; attempt < MAX_RETRY_ATTEMPTS; attempt++) {
     try {
-      const response = await fetch(parsed.href, {
-        signal: controller.signal,
-        headers: {
-          'User-Agent': UA,
-          Accept: 'image/*',
-          ...(referer ? { Referer: referer } : {}),
-        },
-        redirect: 'follow',
-      });
-
-      clearTimeout(timeout);
-
-      if (!response.ok) {
-        console.warn(`[PosterDownload] HTTP ${response.status} for ${externalUrl}`);
-        return null;
-      }
-
-      const contentType = response.headers.get('content-type') || '';
-      if (!contentType.startsWith('image/')) {
-        console.warn(`[PosterDownload] 非图片类型 ${contentType} for ${externalUrl}`);
-        return null;
-      }
-
-      // 如果 URL 路径没有扩展名或扩展名不在白名单，则从 Content-Type 推断
-      if (!ext || !ALLOWED_IMAGE_EXTENSIONS.has(ext)) {
-        ext = extFromContentType(contentType) || '.jpg';
-      }
-
-      const contentLength = parseInt(response.headers.get('content-length') || '0', 10);
-      if (contentLength > MAX_FILE_SIZE) {
-        console.warn(`[PosterDownload] 文件过大 ${contentLength} bytes for ${externalUrl}`);
-        return null;
-      }
-
-      const filename = `${randomUUID()}${ext}`;
-      const outputPath = path.join(POSTERS_DIR, filename);
-      const localUrl = `/uploads/posters/${filename}`;
-
-      if (!response.body) {
-        return null;
-      }
-
-      const nodeStream = Readable.fromWeb(response.body as import('stream/web').ReadableStream);
-      const fileStream = fs.createWriteStream(outputPath);
-
-      // 限制实际写入大小
-      let bytesWritten = 0;
-      nodeStream.on('data', (chunk: Buffer) => {
-        bytesWritten += chunk.length;
-        if (bytesWritten > MAX_FILE_SIZE) {
-          nodeStream.destroy(new Error('文件大小超过限制'));
-        }
-      });
-
-      await pipeline(nodeStream, fileStream);
-
-      console.log(`[PosterDownload] 已下载 ${externalUrl} -> ${localUrl} (${bytesWritten} bytes)`);
-      return localUrl;
+      const result = await downloadPosterOnce(externalUrl);
+      return result;
     } catch (err) {
-      clearTimeout(timeout);
-      throw err;
+      const httpStatus = (err as any)?.httpStatus as number | undefined;
+      if (!isRetryableError(err, httpStatus) || attempt >= MAX_RETRY_ATTEMPTS - 1) {
+        console.error(`[PosterDownload] 下载失败 ${externalUrl} (尝试 ${attempt + 1}/${MAX_RETRY_ATTEMPTS}):`, err);
+        return null;
+      }
+      const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt);
+      console.warn(`[PosterDownload] 下载失败，${delay / 1000}s 后重试 (${attempt + 1}/${MAX_RETRY_ATTEMPTS}) ${externalUrl}`);
+      await sleep(delay);
     }
-  } catch (err) {
-    console.error(`[PosterDownload] 下载失败 ${externalUrl}:`, err);
-    return null;
   }
+  return null;
 }
 
 /**
@@ -249,6 +287,23 @@ class PosterMigrationQueue {
       concurrency: this.concurrency,
       running: this.processing || this.active > 0,
     };
+  }
+
+  /** 重置统计计数器（用于开始新一轮迁移前清除旧数据） */
+  resetStats() {
+    this.completed = 0;
+    this.failed = 0;
+    this.skipped = 0;
+    this.total = 0;
+  }
+
+  /** 重新查询仍为外部 URL 的记录并入队 */
+  async retryFailed(): Promise<number> {
+    if (this.processing || this.active > 0) {
+      return 0;
+    }
+    this.resetStats();
+    return migrateExternalPosters();
   }
 
   private async process() {
@@ -324,4 +379,62 @@ export async function migrateExternalPosters(): Promise<number> {
   posterMigrationQueue.enqueueBatch(items);
   console.log(`[PosterMigration] 已入队 ${items.length} 个外部封面待迁移`);
   return items.length;
+}
+
+/**
+ * 统计所有 ACTIVE 媒体的封面分布情况
+ */
+export async function getPosterStats(): Promise<{
+  total: number;
+  external: number;
+  local: number;
+  missing: number;
+  totalSizeBytes: number;
+}> {
+  const [total, external, missing] = await Promise.all([
+    prisma.media.count({ where: { status: 'ACTIVE' } }),
+    prisma.media.count({
+      where: {
+        status: 'ACTIVE',
+        posterUrl: { not: null },
+        OR: [
+          { posterUrl: { startsWith: 'http://' } },
+          { posterUrl: { startsWith: 'https://' } },
+        ],
+      },
+    }),
+    prisma.media.count({
+      where: {
+        status: 'ACTIVE',
+        OR: [
+          { posterUrl: null },
+          { posterUrl: '' },
+        ],
+      },
+    }),
+  ]);
+
+  // 计算本地封面文件总体积
+  let totalSizeBytes = 0;
+  if (fs.existsSync(POSTERS_DIR)) {
+    try {
+      const files = fs.readdirSync(POSTERS_DIR);
+      for (const file of files) {
+        const stat = fs.statSync(path.join(POSTERS_DIR, file));
+        if (stat.isFile()) {
+          totalSizeBytes += stat.size;
+        }
+      }
+    } catch {
+      // 读取失败时保持 0
+    }
+  }
+
+  return {
+    total,
+    external,
+    local: total - external - missing,
+    missing,
+    totalSizeBytes,
+  };
 }
